@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" height="400">
+  <rect width="800" height="400" fill="#f0f0f0"/>
+  <rect x="0" y="0" width="400" height="400" fill="#01411C"/>
+  <rect x="400" y="0" width="400" height="400" fill="#007A4D"/>
+  
+  <!-- Pakistan Flag Elements -->
+  <circle cx="280" cy="180" r="60" fill="#FFFFFF"/>
+  <circle cx="300" cy="160" r="50" fill="#01411C"/>
+  <polygon points="300,110 310,140 340,140 315,160 325,190 300,170 275,190 285,160 260,140 290,140" fill="#FFFFFF"/>
+  
+  <!-- South Africa Flag Elements -->
+  <path d="M400,100 L800,100 L800,300 L400,300 Z" fill="#FFB612"/>
+  <path d="M400,150 L750,150 L750,250 L400,250 Z" fill="#FFFFFF"/>
+  <path d="M400,200 L700,200 L700,400 L550,400 L400,400 Z" fill="#000"/>
+  <path d="M400,0 L550,0 L700,0 L700,200 L400,200 Z" fill="#0000CC"/>
+  
+  <!-- Team Names -->
+  <text x="200" y="300" font-family="Arial" font-size="32" font-weight="bold" text-anchor="middle" fill="#FFFFFF">PAKISTAN</text>
+  <text x="600" y="300" font-family="Arial" font-size="32" font-weight="bold" text-anchor="middle" fill="#FFFFFF">SOUTH AFRICA</text>
+  
+  <!-- VS Text -->
+  <text x="400" y="200" font-family="Arial" font-size="48" font-weight="bold" text-anchor="middle" fill="#FFFFFF">VS</text>
+  
+  <!-- Cricket Elements -->
+  <rect x="380" y="240" width="40" height="5" fill="#FFFFFF"/>
+  <circle cx="400" cy="230" r="10" fill="#FFB612"/>
+</svg>

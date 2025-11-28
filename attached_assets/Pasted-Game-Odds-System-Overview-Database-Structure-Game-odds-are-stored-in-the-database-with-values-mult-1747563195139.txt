@@ -1,0 +1,45 @@
+Game Odds System Overview
+Database Structure
+Game odds are stored in the database with values multiplied by 100 for precision (e.g., 90x is stored as 9000)
+Each game type (jodi, harf, crossing, odd_even) has its own odds entry
+Odds can be set platform-wide by admins or customized for specific subadmins
+Admin Role
+Admins set the default/platform-wide game odds that apply to everyone
+These appear as "Admin Odds" in the subadmin dashboard
+When admins set odds, they're stored with setByAdmin: true and subadminId: null
+Standard odds by game type:
+Jodi (Full Number): 90x
+Harf (Single Digit): 9x
+Crossing: 95x
+Odd/Even: 1.8x
+Subadmin Role
+Subadmins can have custom odds assigned to them by admins
+These appear as "Your Players' Game Odds" in the subadmin dashboard
+When custom odds are set for a subadmin, they're stored with setByAdmin: false and subadminId: [specific ID]
+These custom odds should override the platform defaults for all players assigned to that subadmin
+Player Experience
+Players see the payout ratio in standardized format (90x, 9x, etc.)
+The potential win amount is calculated based on:
+If the player is assigned to a subadmin with custom odds, use those odds
+Otherwise, use the platform-wide admin odds
+The odds are displayed in the payout ratio format that shows:
+Jodi (Full Number): 90x
+Harf (Single Digit): 9x
+Crossing: 95x
+Odd/Even: 1.8x
+Win Calculation Flow
+When a player places a bet, the system:
+Checks if the player is assigned to a subadmin
+If yes, looks for custom odds set for that subadmin
+If custom odds exist, uses those for calculation
+If no custom odds, falls back to platform defaults
+The calculation itself:
+For a ₹100 bet on Jodi with 90x odds, potential win = ₹9000
+For a ₹100 bet on Harf with 9x odds, potential win = ₹900
+These are stored in paisa (₹90 = 9000 paisa)
+The fixes we implemented ensure that:
+
+The correct odds are displayed to players (no extra zeros)
+Subadmin custom odds properly override platform defaults
+Win calculations show the proper amounts 
+check market game ui where win ods potential wind display is following our win ods rule and calulating potential win after win  add to wallet,display proper amount and win ods 

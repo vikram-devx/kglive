@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" height="400">
+  <rect width="800" height="400" fill="#f0f0f0"/>
+  <rect x="0" y="0" width="400" height="400" fill="#7B0041"/>
+  <rect x="400" y="0" width="400" height="400" fill="#FFBE29"/>
+  
+  <!-- West Indies Elements -->
+  <text x="200" y="150" font-family="Arial" font-size="24" font-weight="bold" text-anchor="middle" fill="#FFBE29">WEST</text>
+  <text x="200" y="180" font-family="Arial" font-size="24" font-weight="bold" text-anchor="middle" fill="#FFBE29">INDIES</text>
+  <circle cx="200" cy="230" r="40" fill="#FFBE29"/>
+  <path d="M175,230 L225,230 M200,205 L200,255" stroke="#7B0041" stroke-width="6"/>
+  
+  <!-- Sri Lanka Flag Elements -->
+  <rect x="440" y="100" width="320" height="200" fill="#8D153A"/>
+  <rect x="450" y="110" width="300" height="180" fill="#FFC83D"/>
+  <rect x="460" y="120" width="280" height="160" fill="#00534E"/>
+  
+  <path d="M580,150 C580,120 550,140 550,170 S580,220 580,190" fill="#8D153A"/>
+  <path d="M620,150 C620,120 650,140 650,170 S620,220 620,190" fill="#8D153A"/>
+  <path d="M600,130 C570,130 590,160 620,160 S630,130 600,130" fill="#8D153A"/>
+  <path d="M600,210 C570,210 590,180 620,180 S630,210 600,210" fill="#8D153A"/>
+  
+  <!-- Team Names -->
+  <text x="200" y="320" font-family="Arial" font-size="32" font-weight="bold" text-anchor="middle" fill="#FFFFFF">WEST INDIES</text>
+  <text x="600" y="320" font-family="Arial" font-size="32" font-weight="bold" text-anchor="middle" fill="#00534E">SRI LANKA</text>
+  
+  <!-- VS Text -->
+  <text x="400" y="200" font-family="Arial" font-size="48" font-weight="bold" text-anchor="middle" fill="#333">VS</text>
+  
+  <!-- Cricket Elements -->
+  <rect x="380" y="240" width="40" height="5" fill="#333"/>
+  <circle cx="400" cy="230" r="10" fill="#8D153A"/>
+</svg>

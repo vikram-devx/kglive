@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 150 150" width="32" height="32">
+  <defs>
+    <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3FF4F4" />
+      <stop offset="50%" stop-color="#A45BFF" />
+      <stop offset="100%" stop-color="#FF5BCD" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Crown -->
+  <path d="M75 25 L50 45 L75 35 L100 45 L75 25" fill="url(#gradient1)" />
+  
+  <!-- Shield -->
+  <path d="M50 45 L75 45 L100 45 L100 95 C100 110 75 125 75 125 C75 125 50 110 50 95 L50 45 Z" fill="none" stroke="url(#gradient1)" stroke-width="6" />
+  
+  <!-- Letter K -->
+  <path d="M65 60 L65 100 M65 80 L85 60 M65 80 L85 100" stroke="url(#gradient1)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+</svg>

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" height="400">
+  <rect width="800" height="400" fill="#f0f0f0"/>
+  <rect x="0" y="0" width="400" height="400" fill="#00247D"/>
+  <rect x="400" y="0" width="400" height="400" fill="#00247D"/>
+  
+  <!-- England Flag Elements -->
+  <path d="M0,0 L400,200 L0,400" fill="none" stroke="#FFFFFF" stroke-width="40"/>
+  <path d="M400,0 L0,200 L400,400" fill="none" stroke="#FFFFFF" stroke-width="40"/>
+  <path d="M200,0 L200,400" fill="none" stroke="#FFFFFF" stroke-width="40"/>
+  <path d="M0,200 L400,200" fill="none" stroke="#FFFFFF" stroke-width="40"/>
+  <path d="M0,0 L400,200 L0,400" fill="none" stroke="#CF142B" stroke-width="20"/>
+  <path d="M400,0 L0,200 L400,400" fill="none" stroke="#CF142B" stroke-width="20"/>
+  <path d="M200,0 L200,400" fill="none" stroke="#CF142B" stroke-width="20"/>
+  <path d="M0,200 L400,200" fill="none" stroke="#CF142B" stroke-width="20"/>
+  
+  <!-- New Zealand Flag Elements -->
+  <rect x="400" y="0" width="200" height="200" fill="#00247D"/>
+  <path d="M420,20 L580,20 L580,180 L420,180 Z" fill="none" stroke="#FFFFFF" stroke-width="10"/>
+  <path d="M420,20 L580,180" fill="none" stroke="#FFFFFF" stroke-width="10"/>
+  <path d="M420,180 L580,20" fill="none" stroke="#FFFFFF" stroke-width="10"/>
+  <path d="M500,20 L500,180" fill="none" stroke="#FFFFFF" stroke-width="10"/>
+  <path d="M420,100 L580,100" fill="none" stroke="#FFFFFF" stroke-width="10"/>
+  <path d="M420,20 L580,180" fill="none" stroke="#CF142B" stroke-width="5"/>
+  <path d="M420,180 L580,20" fill="none" stroke="#CF142B" stroke-width="5"/>
+  <polygon points="650,150 660,170 680,170 665,185 670,205 650,195 630,205 635,185 620,170 640,170" fill="#FFFFFF"/>
+  <polygon points="700,100 705,110 715,110 707,117 710,127 700,122 690,127 693,117 685,110 695,110" fill="#FFFFFF"/>
+  
+  <!-- Team Names -->
+  <text x="200" y="300" font-family="Arial" font-size="32" font-weight="bold" text-anchor="middle" fill="#FFFFFF">ENGLAND</text>
+  <text x="600" y="300" font-family="Arial" font-size="32" font-weight="bold" text-anchor="middle" fill="#FFFFFF">NEW ZEALAND</text>
+  
+  <!-- VS Text -->
+  <text x="400" y="200" font-family="Arial" font-size="48" font-weight="bold" text-anchor="middle" fill="#FFFFFF">VS</text>
+  
+  <!-- Cricket Elements -->
+  <rect x="380" y="240" width="40" height="5" fill="#FFFFFF"/>
+  <circle cx="400" cy="230" r="10" fill="#CF142B"/>
+</svg>

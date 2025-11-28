@@ -1,0 +1,910 @@
+import React, { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
+import { UserRole } from "@shared/schema";
+import DashboardLayout from "@/components/dashboard-layout";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { formatDistance } from "date-fns";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  ArrowDown, 
+  ArrowUp, 
+  Coins, 
+  Users, 
+  Search, 
+  Filter, 
+  AlertTriangle,
+  TrendingUp,
+  ChevronUp,
+  Settings,
+  ChevronDown,
+  Dices,
+  DollarSign,
+  Calculator,
+  Info,
+  BarChart,
+  ShieldAlert,
+  Activity
+} from "lucide-react";
+
+// Define types for our data
+interface BettingStats {
+  number: string;
+  totalBets: number;
+  totalAmount: number;
+  potentialWinAmount: number;
+  uniqueUsers: number;
+  gameMode?: string; // Add gameMode to identify bet type (jodi, harf, odd-even, crossing)
+}
+
+interface JantriGameStats {
+  marketId: number;
+  marketName: string;
+  numbers: BettingStats[];
+}
+
+interface TeamBettingStats {
+  teamName: string;
+  totalBets: number;
+  totalAmount: number;
+  potentialWinAmount: number;
+  uniqueUsers: number;
+  matchId?: number;      // Added to track which match this team belongs to
+  matchName?: string;    // Added to show match name
+  opponentTeam?: string; // Added to show opponent team
+  isDraw?: boolean;      // Flag to identify if this is a draw option
+}
+
+interface TeamMatchStats {
+  matchId: number;
+  matchName: string;
+  teams: TeamBettingStats[];
+}
+
+export default function RiskManagementPage() {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState("satamatka");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortColumn, setSortColumn] = useState("number");
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc'); // 'asc' for numbers to show 00-99
+  const [betTypeFilter, setBetTypeFilter] = useState<string>("all"); // Filter for Satamatka bet types
+  
+  // Risk level threshold states
+  const [lowRiskThreshold, setLowRiskThreshold] = useState<number>(5000);
+  const [mediumRiskThreshold, setMediumRiskThreshold] = useState<number>(20000);
+  const [highRiskThreshold, setHighRiskThreshold] = useState<number>(50000);
+  const [showRiskSettings, setShowRiskSettings] = useState<boolean>(false);
+  
+  const isAdmin = user?.role === UserRole.ADMIN;
+  const isSubadmin = user?.role === UserRole.SUBADMIN;
+
+  // Early return if not admin or subadmin
+  if (!isAdmin && !isSubadmin) {
+    return (
+      <DashboardLayout title="Access Denied">
+        <Card>
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>
+              You do not have permission to view this page.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </DashboardLayout>
+    );
+  }
+
+  // Query for jantri statistics (Satamatka)
+  const { data: jantriStats, isLoading: jantriLoading, error: jantriError } = useQuery<JantriGameStats[]>({
+    queryKey: ["/api/jantri/stats", isAdmin ? "admin" : `subadmin-${user?.id}`],
+    enabled: !!user && (isAdmin || isSubadmin),
+    retry: 1,
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: false
+  });
+
+  // Query for cricket toss statistics
+  const { data: cricketTossStats, isLoading: cricketLoading, error: cricketError } = useQuery<TeamMatchStats[]>({
+    queryKey: ["/api/cricket-toss-stats", isAdmin ? "admin" : `subadmin-${user?.id}`],
+    enabled: !!user && (isAdmin || isSubadmin),
+    retry: 1,
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: false
+  });
+
+  // Query for sports match statistics
+  const { data: sportsStats, isLoading: sportsLoading, error: sportsError } = useQuery<TeamMatchStats[]>({
+    queryKey: ["/api/sports/stats", isAdmin ? "admin" : `subadmin-${user?.id}`],
+    enabled: !!user && (isAdmin || isSubadmin),
+    retry: 1,
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: false
+  });
+
+  // Function to format currency amounts
+  const formatAmount = (amount: number) => {
+    return "₹" + (amount / 100).toFixed(2);
+  };
+  
+  // Function to determine risk level based on potential win amount
+  const calculateRiskLevel = (potentialWinAmount: number) => {
+    let riskLevel = "None";
+    let riskColor = "bg-gray-100 text-gray-800";
+    
+    if (potentialWinAmount > highRiskThreshold) {
+      riskLevel = "High";
+      riskColor = "bg-red-100 text-red-800";
+    } else if (potentialWinAmount > mediumRiskThreshold) {
+      riskLevel = "Medium";
+      riskColor = "bg-yellow-100 text-yellow-800";
+    } else if (potentialWinAmount > lowRiskThreshold) {
+      riskLevel = "Low";
+      riskColor = "bg-green-100 text-green-800";
+    }
+    
+    return { riskLevel, riskColor };
+  };
+
+  // Process and flatten the numbers data from all markets for table display
+  const processJantriData = () => {
+    if (!jantriStats || jantriStats.length === 0) return [];
+    
+    // Combine all numbers from all markets
+    const combinedData: Record<string, BettingStats> = {};
+    
+    // If we're showing a specific bet type and should display all numbers 00-99
+    if (betTypeFilter !== "all") {
+      // Create a map of all numbers 00-99 with the selected bet type
+      for (let i = 0; i < 100; i++) {
+        const numberStr = i.toString().padStart(2, "0");
+        combinedData[numberStr] = {
+          number: numberStr,
+          totalBets: 0,
+          totalAmount: 0,
+          potentialWinAmount: 0,
+          uniqueUsers: 0,
+          gameMode: betTypeFilter // Set the game mode to the selected filter
+        };
+      }
+    }
+    
+    jantriStats.forEach(market => {
+      market.numbers.forEach(numStat => {
+        const number = numStat.number;
+        const gameMode = numStat.gameMode;
+        
+        // If filtering by bet type, only consider stats for the selected bet type
+        if (betTypeFilter !== "all" && gameMode !== betTypeFilter) {
+          return; // Skip this entry if it doesn't match the filter
+        }
+        
+        if (!combinedData[number]) {
+          combinedData[number] = { ...numStat };
+        } else {
+          // For "all" filter, accumulate stats across bet types
+          if (betTypeFilter === "all") {
+            // Add values to existing stats
+            combinedData[number].totalBets += numStat.totalBets;
+            combinedData[number].totalAmount += numStat.totalAmount;
+            combinedData[number].potentialWinAmount += numStat.potentialWinAmount;
+            combinedData[number].uniqueUsers += numStat.uniqueUsers;
+            
+            // Update gameMode if this entry has more bets for this number than the existing one
+            if (numStat.totalBets > combinedData[number].totalBets && gameMode) {
+              combinedData[number].gameMode = gameMode;
+            }
+          } else if (gameMode === betTypeFilter) {
+            // For specific bet type, only accumulate matching bet type stats
+            combinedData[number].totalBets += numStat.totalBets;
+            combinedData[number].totalAmount += numStat.totalAmount;
+            combinedData[number].potentialWinAmount += numStat.potentialWinAmount;
+            combinedData[number].uniqueUsers += numStat.uniqueUsers;
+          }
+        }
+      });
+    });
+    
+    // Convert to array and apply search filter
+    return Object.values(combinedData)
+      .filter(stat => {
+        // Filter by search term if present
+        if (!searchTerm) return true;
+        return stat.number.includes(searchTerm);
+      })
+      .sort((a, b) => {
+        // Handle different types of sorting based on the column
+        if (sortColumn === "number") {
+          // If sorting by number, always sort numbers from 00 to 99
+          return a.number.localeCompare(b.number);
+        } else if (sortColumn === "gameMode") {
+          // For gameMode, we need to use string comparison
+          const aMode = a.gameMode || "";
+          const bMode = b.gameMode || "";
+          
+          if (sortDirection === 'asc') {
+            return aMode.localeCompare(bMode);
+          } else {
+            return bMode.localeCompare(aMode);
+          }
+        } else {
+          // For numerical columns, use numeric comparison
+          const aValue = a[sortColumn as keyof BettingStats] as number;
+          const bValue = b[sortColumn as keyof BettingStats] as number;
+          
+          if (sortDirection === 'asc') {
+            return aValue - bValue;
+          } else {
+            return bValue - aValue;
+          }
+        }
+      })
+      .slice(0, 100); // Get top 100 results
+  };
+
+  // Process cricket toss data from API
+  const processCricketTossData = () => {
+    if (!cricketTossStats || cricketTossStats.length === 0) {
+      // Return empty array when no data is available
+      return [];
+    }
+    
+    // Enhanced teams with match information and opponents
+    const enhancedTeams: TeamBettingStats[] = [];
+    
+    cricketTossStats.forEach(match => {
+      // Skip if there are not exactly 2 teams in a match
+      if (match.teams.length !== 2) return;
+      
+      // Prepare both teams with match information and their opponent
+      const team1 = {
+        ...match.teams[0],
+        matchId: match.matchId,
+        matchName: match.matchName,
+        opponentTeam: match.teams[1].teamName
+      };
+      
+      const team2 = {
+        ...match.teams[1],
+        matchId: match.matchId,
+        matchName: match.matchName,
+        opponentTeam: match.teams[0].teamName
+      };
+      
+      enhancedTeams.push(team1, team2);
+    });
+    
+    // Filter and sort the teams
+    return enhancedTeams
+      .filter(team => {
+        if (!searchTerm) return true;
+        
+        // Search by team name, match name, or opponent
+        return (
+          team.teamName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (team.matchName && team.matchName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (team.opponentTeam && team.opponentTeam.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+      })
+      .sort((a, b) => {
+        // First sort by matchId to group teams from the same match
+        if (sortColumn !== 'matchId' && a.matchId !== b.matchId) {
+          return a.matchId! - b.matchId!;
+        }
+        
+        // Then apply the selected sorting
+        if (sortColumn === 'teamName' || sortColumn === 'opponentTeam' || sortColumn === 'matchName') {
+          const aStr = String(a[sortColumn as keyof TeamBettingStats] || '');
+          const bStr = String(b[sortColumn as keyof TeamBettingStats] || '');
+          return sortDirection === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+        } else {
+          const aValue = a[sortColumn as keyof TeamBettingStats] as number;
+          const bValue = b[sortColumn as keyof TeamBettingStats] as number;
+          
+          if (sortDirection === 'asc') {
+            return aValue - bValue;
+          } else {
+            return bValue - aValue;
+          }
+        }
+      })
+      .slice(0, 100); // Get top 100 results
+  };
+
+  // Process sports match data from API
+  const processSportsData = () => {
+    if (!sportsStats || sportsStats.length === 0) {
+      // Return empty array when no data is available
+      return [];
+    }
+    
+    // Enhanced teams with match information and opponents
+    const enhancedTeams: TeamBettingStats[] = [];
+    
+    sportsStats.forEach(match => {
+      // Skip if there are not exactly 2 teams in a match
+      if (match.teams.length < 2) return;
+      
+      // Prepare both teams with match information and their opponent
+      const team1 = {
+        ...match.teams[0],
+        matchId: match.matchId,
+        matchName: match.matchName,
+        opponentTeam: match.teams[1].teamName
+      };
+      
+      const team2 = {
+        ...match.teams[1],
+        matchId: match.matchId,
+        matchName: match.matchName,
+        opponentTeam: match.teams[0].teamName
+      };
+      
+      // Add a draw option for sports matches
+      const drawOption: TeamBettingStats = {
+        teamName: "Draw",
+        totalBets: match.teams.length > 2 ? (match.teams[2]?.totalBets || 0) : 0,
+        totalAmount: match.teams.length > 2 ? (match.teams[2]?.totalAmount || 0) : 0,
+        potentialWinAmount: match.teams.length > 2 ? (match.teams[2]?.potentialWinAmount || 0) : 0,
+        uniqueUsers: match.teams.length > 2 ? (match.teams[2]?.uniqueUsers || 0) : 0,
+        matchId: match.matchId,
+        matchName: match.matchName,
+        isDraw: true
+      };
+      
+      enhancedTeams.push(team1, team2, drawOption);
+    });
+    
+    // Filter and sort the teams
+    return enhancedTeams
+      .filter(team => {
+        if (!searchTerm) return true;
+        
+        // Search by team name, match name, or opponent
+        return (
+          team.teamName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (team.matchName && team.matchName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (team.opponentTeam && team.opponentTeam.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+      })
+      .sort((a, b) => {
+        // First sort by matchId to group teams from the same match
+        if (sortColumn !== 'matchId' && a.matchId !== b.matchId) {
+          return a.matchId! - b.matchId!;
+        }
+        
+        // Then apply the selected sorting
+        if (sortColumn === 'teamName' || sortColumn === 'opponentTeam' || sortColumn === 'matchName') {
+          const aStr = String(a[sortColumn as keyof TeamBettingStats] || '');
+          const bStr = String(b[sortColumn as keyof TeamBettingStats] || '');
+          return sortDirection === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+        } else {
+          const aValue = a[sortColumn as keyof TeamBettingStats] as number;
+          const bValue = b[sortColumn as keyof TeamBettingStats] as number;
+          
+          if (sortDirection === 'asc') {
+            return aValue - bValue;
+          } else {
+            return bValue - aValue;
+          }
+        }
+      })
+      .slice(0, 100); // Get top 100 results
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
+  };
+
+  // Calculate summary statistics
+  const calculateSummary = () => {
+    let totalBets = 0;
+    let totalAmount = 0;
+    let totalPotentialWin = 0;
+    let totalUniqueUsers = 0;
+    
+    if (activeTab === "satamatka") {
+      const data = processJantriData();
+      data.forEach(item => {
+        totalBets += item.totalBets;
+        totalAmount += item.totalAmount;
+        totalPotentialWin += item.potentialWinAmount;
+        totalUniqueUsers += item.uniqueUsers;
+      });
+    } else if (activeTab === "cricket") {
+      const data = processCricketTossData();
+      data.forEach(item => {
+        totalBets += item.totalBets;
+        totalAmount += item.totalAmount;
+        totalPotentialWin += item.potentialWinAmount;
+        totalUniqueUsers += item.uniqueUsers;
+      });
+    } else if (activeTab === "sports") {
+      const data = processSportsData();
+      data.forEach(item => {
+        totalBets += item.totalBets;
+        totalAmount += item.totalAmount;
+        totalPotentialWin += item.potentialWinAmount;
+        totalUniqueUsers += item.uniqueUsers;
+      });
+    }
+    
+    return { totalBets, totalAmount, totalPotentialWin, totalUniqueUsers };
+  };
+
+  const summary = calculateSummary();
+
+  // Render the table based on active tab
+  const renderTable = () => {
+    if (activeTab === "satamatka") {
+      const data = processJantriData();
+      
+      return (
+        <ScrollArea className="h-[600px]">
+          <Table>
+            <TableHeader className="sticky top-0 bg-background">
+              <TableRow>
+                <TableHead 
+                  className="w-[80px] cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('number')}
+                >
+                  <div className="flex items-center">
+                    Number
+                    {sortColumn === 'number' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('totalBets')}
+                >
+                  <div className="flex items-center">
+                    Bets 
+                    {sortColumn === 'totalBets' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('totalAmount')}
+                >
+                  <div className="flex items-center">
+                    Amount 
+                    {sortColumn === 'totalAmount' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('potentialWinAmount')}
+                >
+                  <div className="flex items-center">
+                    Potential Win 
+                    {sortColumn === 'potentialWinAmount' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('uniqueUsers')}
+                >
+                  <div className="flex items-center">
+                    Users 
+                    {sortColumn === 'uniqueUsers' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('gameMode')}
+                >
+                  <div className="flex items-center">
+                    {betTypeFilter === "all" ? "All Bet Types" : (
+                      <div className="flex items-center">
+                        <span className="capitalize">{betTypeFilter}</span>
+                        <Filter className="ml-1 h-3 w-3 text-muted-foreground" />
+                      </div>
+                    )}
+                    {sortColumn === 'gameMode' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead>Risk Level</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {jantriLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-4">
+                    <div className="flex justify-center items-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : jantriError ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-4 text-red-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertTriangle className="h-6 w-6" />
+                      <p>Error loading Satamatka statistics. Please try again later.</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-4">
+                    No data available for Satamatka games
+                  </TableCell>
+                </TableRow>
+              ) : (
+                data.map((item) => {
+                  // Calculate risk level using our helper function
+                  const { riskLevel, riskColor } = calculateRiskLevel(item.potentialWinAmount);
+                  
+                  return (
+                    <TableRow key={item.number}>
+                      <TableCell className="font-medium">{item.number}</TableCell>
+                      <TableCell>{item.totalBets}</TableCell>
+                      <TableCell>{formatAmount(item.totalAmount)}</TableCell>
+                      <TableCell>{formatAmount(item.potentialWinAmount)}</TableCell>
+                      <TableCell>{item.uniqueUsers}</TableCell>
+                      <TableCell>
+                        {betTypeFilter === "all" ? (
+                          // When all bet types are shown, display "All" for combined data
+                          <Badge variant="outline">
+                            All
+                          </Badge>
+                        ) : (
+                          // When a specific bet type is selected, show that type consistently
+                          <Badge variant="outline" className="capitalize">
+                            {betTypeFilter}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={riskColor}>{riskLevel}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </ScrollArea>
+      );
+    } else if (activeTab === "cricket") {
+      const data = processCricketTossData();
+      let currentMatchId: number | null = null;
+      
+      return (
+        <ScrollArea className="h-[600px]">
+          <Table>
+            <TableHeader className="sticky top-0 bg-background">
+              <TableRow>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('teamName')}
+                >
+                  <div className="flex items-center">
+                    Team
+                    {sortColumn === 'teamName' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('opponentTeam')}
+                >
+                  <div className="flex items-center">
+                    Opponent
+                    {sortColumn === 'opponentTeam' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('totalBets')}
+                >
+                  <div className="flex items-center">
+                    Bets 
+                    {sortColumn === 'totalBets' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('totalAmount')}
+                >
+                  <div className="flex items-center">
+                    Amount 
+                    {sortColumn === 'totalAmount' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('potentialWinAmount')}
+                >
+                  <div className="flex items-center">
+                    Potential Win 
+                    {sortColumn === 'potentialWinAmount' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('uniqueUsers')}
+                >
+                  <div className="flex items-center">
+                    Users 
+                    {sortColumn === 'uniqueUsers' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead>Risk Level</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {cricketLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-4">
+                    <div className="flex justify-center items-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : cricketError ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-4 text-red-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertTriangle className="h-6 w-6" />
+                      <p>Error loading Cricket Toss statistics. Please try again later.</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-4">
+                    No data available for Cricket Toss games
+                  </TableCell>
+                </TableRow>
+              ) : (
+                data.map((item, index) => {
+                  // Calculate risk level using shared function
+                  const { riskLevel, riskColor } = calculateRiskLevel(item.potentialWinAmount);
+                  
+                  // Determine if this is the start of a new match group
+                  const isNewMatch = currentMatchId !== item.matchId;
+                  currentMatchId = item.matchId || null;
+                  
+                  // Calculate if this is the second team in a match (for styling alternating teams)
+                  const isSecondTeamInMatch = index % 2 === 1;
+                  
+                  // Use two separate returns to avoid fragment key issue
+                  return isNewMatch ? (
+                    <>
+                      {/* Match header row */}
+                      <TableRow 
+                        key={`match-header-${item.matchId}`} 
+                        className="bg-muted/30"
+                      >
+                        <TableCell colSpan={7} className="py-1">
+                          <div className="text-sm font-medium flex items-center">
+                            <Activity className="mr-2 h-4 w-4 text-primary" />
+                            {item.matchName || "Cricket Toss Match"}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      
+                      {/* Team row with highlight for odd/even teams */}
+                      <TableRow 
+                        key={`${item.matchId}-${item.teamName}`}
+                        className={isSecondTeamInMatch ? "bg-accent/10" : ""}
+                      >
+                        <TableCell className="font-medium">{item.teamName}</TableCell>
+                        <TableCell>
+                          {item.opponentTeam ? (
+                            <Badge variant="outline">{item.opponentTeam}</Badge>
+                          ) : "N/A"}
+                        </TableCell>
+                        <TableCell>{item.totalBets}</TableCell>
+                        <TableCell>{formatAmount(item.totalAmount)}</TableCell>
+                        <TableCell>{formatAmount(item.potentialWinAmount)}</TableCell>
+                        <TableCell>{item.uniqueUsers}</TableCell>
+                        <TableCell>
+                          <Badge className={riskColor}>{riskLevel}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    </>
+                  ) : (
+                    // Just the team row for subsequent teams in a match
+                    <TableRow 
+                      key={`${item.matchId}-${item.teamName}`}
+                      className={isSecondTeamInMatch ? "bg-accent/10" : ""}
+                    >
+                      <TableCell className="font-medium">{item.teamName}</TableCell>
+                      <TableCell>
+                        {item.opponentTeam ? (
+                          <Badge variant="outline">{item.opponentTeam}</Badge>
+                        ) : "N/A"}
+                      </TableCell>
+                      <TableCell>{item.totalBets}</TableCell>
+                      <TableCell>{formatAmount(item.totalAmount)}</TableCell>
+                      <TableCell>{formatAmount(item.potentialWinAmount)}</TableCell>
+                      <TableCell>{item.uniqueUsers}</TableCell>
+                      <TableCell>
+                        <Badge className={riskColor}>{riskLevel}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </ScrollArea>
+      );
+    } else if (activeTab === "sports") {
+      const data = processSportsData();
+      let currentMatchId: number | null = null;
+      
+      return (
+        <ScrollArea className="h-[600px]">
+          <Table>
+            <TableHeader className="sticky top-0 bg-background">
+              <TableRow>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('teamName')}
+                >
+                  <div className="flex items-center">
+                    Team/Outcome
+                    {sortColumn === 'teamName' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('opponentTeam')}
+                >
+                  <div className="flex items-center">
+                    Opponent
+                    {sortColumn === 'opponentTeam' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('totalBets')}
+                >
+                  <div className="flex items-center">
+                    Bets 
+                    {sortColumn === 'totalBets' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('totalAmount')}
+                >
+                  <div className="flex items-center">
+                    Amount 
+                    {sortColumn === 'totalAmount' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('potentialWinAmount')}
+                >
+                  <div className="flex items-center">
+                    Potential Win 
+                    {sortColumn === 'potentialWinAmount' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary"
+                  onClick={() => handleSort('uniqueUsers')}
+                >
+                  <div className="flex items-center">
+                    Users 
+                    {sortColumn === 'uniqueUsers' && (
+                      sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead>Risk Level</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sportsLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-4">
+                    <div className="flex justify-center items-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : sportsError ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-4 text-red-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertTriangle className="h-6 w-6" />
+                      <p>Error loading Sports statistics. Please try again later.</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-4">
+                    No data available for Sports matches
+                  </TableCell>
+                </TableRow>
+              ) : (
+                data.map((item, index) => {
+                  // Calculate risk level
+                  let riskLevel = "Low";
+                  let riskColor = "bg-green-100 text-green-800";
+                  
+                  if (item.potentialWinAmount > 50000) {
+                    riskLevel = "High";
+                    riskColor = "bg-red-100 text-red-800";
+                  } else if (item.potentialWinAmount > 20000) {

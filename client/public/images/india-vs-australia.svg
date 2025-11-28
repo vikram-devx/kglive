@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" height="400">
+  <rect width="800" height="400" fill="#f0f0f0"/>
+  <rect x="0" y="0" width="400" height="400" fill="#FF9933"/>
+  <rect x="400" y="0" width="400" height="400" fill="#00008B"/>
+  
+  <!-- India Flag Elements -->
+  <circle cx="200" cy="200" r="60" fill="#FFFFFF"/>
+  <circle cx="200" cy="200" r="55" fill="#000088"/>
+  <circle cx="200" cy="200" r="20" fill="#FFFFFF"/>
+  
+  <!-- Australia Flag Elements -->
+  <polygon points="600,170 620,200 600,230 580,200" fill="#FFFFFF"/>
+  <polygon points="650,150 660,170 680,170 665,185 670,205 650,195 630,205 635,185 620,170 640,170" fill="#FFFFFF"/>
+  <polygon points="700,100 705,110 715,110 707,117 710,127 700,122 690,127 693,117 685,110 695,110" fill="#FFFFFF"/>
+  
+  <!-- Team Names -->
+  <text x="200" y="300" font-family="Arial" font-size="32" font-weight="bold" text-anchor="middle" fill="#FFFFFF">INDIA</text>
+  <text x="600" y="300" font-family="Arial" font-size="32" font-weight="bold" text-anchor="middle" fill="#FFFFFF">AUSTRALIA</text>
+  
+  <!-- VS Text -->
+  <text x="400" y="200" font-family="Arial" font-size="48" font-weight="bold" text-anchor="middle" fill="#333">VS</text>
+  
+  <!-- Cricket Elements -->
+  <rect x="380" y="240" width="40" height="5" fill="#333"/>
+  <circle cx="400" cy="230" r="10" fill="#cc0000"/>
+</svg>

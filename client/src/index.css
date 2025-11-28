@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+  
+  /* Custom scrollbar styling for X-axis */
+  .custom-horizontal-scrollbar::-webkit-scrollbar {
+    height: 8px;
+  }
+  
+  .custom-horizontal-scrollbar::-webkit-scrollbar-track {
+    @apply bg-slate-800/30;
+  }
+  
+  .custom-horizontal-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-700 rounded-full;
+  }
+  
+  .custom-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-600;
+  }
+}

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.5;
+    }
+    .container {
+      display: flex;
+      gap: 20px;
+    }
+    .panel {
+      flex: 1;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 15px;
+    }
+    h1, h2 {
+      color: #333;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 5px 0;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    input {
+      padding: 8px;
+      margin: 5px 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    label {
+      font-weight: bold;
+    }
+    .response {
+      background-color: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 10px;
+      margin-top: 10px;
+      min-height: 100px;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+    .code {
+      background-color: #f5f5f5;
+      border: 1px solid #ddd;
+      padding: 10px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Authentication Testing Tool</h1>
+  <p>Use this page to test login, session management, and API access with authentication</p>
+  
+  <div class="container">
+    <div class="panel">
+      <h2>Authentication</h2>
+      <div>
+        <label for="username">Username:</label>
+        <input type="text" id="username" value="admin">
+      </div>
+      <div>
+        <label for="password">Password:</label>
+        <input type="password" id="password" value="admin123">
+      </div>
+      <button id="loginBtn">Login</button>
+      <button id="logoutBtn">Logout</button>
+      <button id="checkAuthBtn">Check Auth Status</button>
+      
+      <h3>Response:</h3>
+      <div id="authResponse" class="response"></div>
+    </div>
+    
+    <div class="panel">
+      <h2>API Testing</h2>
+      <div>
+        <label for="apiPath">API Path:</label>
+        <input type="text" id="apiPath" value="/api/commissions/subadmin/2">
+      </div>
+      <div>
+        <label for="method">HTTP Method:</label>
+        <select id="method">
+          <option value="GET">GET</option>
+          <option value="POST">POST</option>
+          <option value="PUT">PUT</option>
+          <option value="PATCH">PATCH</option>
+          <option value="DELETE">DELETE</option>
+        </select>
+      </div>
+      <div>
+        <label for="requestBody">Request Body (JSON):</label>
+        <textarea id="requestBody" rows="5" style="width: 100%;">{"commissions": [{ "gameType": "team_match", "commissionRate": 5 }]}</textarea>
+      </div>
+      <button id="callApiBtn">Call API</button>
+      
+      <h3>Response:</h3>
+      <div id="apiResponse" class="response"></div>
+    </div>
+  </div>
+
+  <h2>Usage Instructions</h2>
+  <div class="code">
+1. First login with admin/admin123 or another user
+2. Check auth status to confirm you're logged in
+3. Use the API Testing panel to make authenticated requests
+4. Common API paths to try:
+   - /api/user (GET) - Get current user info
+   - /api/commissions/subadmin/2 (GET) - Get commissions for subadmin ID 2
+   - /api/commissions/subadmin/2 (POST) - Update commissions (requires request body)
+  </div>
+
+  <h2>Troubleshooting</h2>
+  <div class="code">
+If you get 401 Unauthorized errors:
+1. Make sure you're logged in first
+2. Check that cookies are being sent with the request
+3. Verify the API endpoint requires authentication
+4. Check server logs for more details
+  </div>
+
+  <script>
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const responseEl = document.getElementById('authResponse');
+      
+      try {
+        responseEl.textContent = 'Logging in...';
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, password }),
+          credentials: 'include' // Important for cookies!
+        });
+        
+        const data = await response.json();
+        responseEl.textContent = 'Status: ' + response.status + '\n' + JSON.stringify(data, null, 2);
+      } catch (error) {
+        responseEl.textContent = 'Error: ' + error.message;
+      }
+    });
+    
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      const responseEl = document.getElementById('authResponse');
+      
+      try {
+        responseEl.textContent = 'Logging out...';
+        const response = await fetch('/api/logout', {
+          method: 'POST',
+          credentials: 'include'
+        });
+        
+        const text = await response.text();
+        responseEl.textContent = 'Status: ' + response.status + '\n' + text;
+      } catch (error) {
+        responseEl.textContent = 'Error: ' + error.message;
+      }
+    });
+    
+    document.getElementById('checkAuthBtn').addEventListener('click', async () => {
+      const responseEl = document.getElementById('authResponse');
+      
+      try {
+        responseEl.textContent = 'Checking authentication...';
+        const response = await fetch('/api/user', {
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          responseEl.textContent = 'Status: ' + response.status + ' (Authenticated)\n' + JSON.stringify(data, null, 2);
+        } else {
+          responseEl.textContent = 'Status: ' + response.status + ' (Not authenticated)';
+        }
+      } catch (error) {
+        responseEl.textContent = 'Error: ' + error.message;
+      }
+    });
+    
+    document.getElementById('callApiBtn').addEventListener('click', async () => {
+      const apiPath = document.getElementById('apiPath').value;
+      const method = document.getElementById('method').value;
+      const requestBody = document.getElementById('requestBody').value;
+      const responseEl = document.getElementById('apiResponse');
+      
+      try {
+        responseEl.textContent = 'Calling API...';
+        const options = {
+          method,
+          credentials: 'include',
+          headers: {}
+        };
+        
+        // Add request body for non-GET requests
+        if (method !== 'GET' && requestBody.trim()) {
+          options.headers['Content-Type'] = 'application/json';
+          try {
+            options.body = requestBody;
+          } catch (e) {
+            responseEl.textContent = 'Invalid JSON in request body: ' + e.message;
+            return;
+          }
+        }
+        
+        const response = await fetch(apiPath, options);
+        
+        try {
+          const data = await response.json();
+          responseEl.textContent = 'Status: ' + response.status + '\n' + JSON.stringify(data, null, 2);
+        } catch (e) {
+          const text = await response.text();
+          responseEl.textContent = 'Status: ' + response.status + '\n' + text;
+        }
+      } catch (error) {
+        responseEl.textContent = 'Error: ' + error.message;
+      }
+    });
+  </script>
+</body>
+</html>
