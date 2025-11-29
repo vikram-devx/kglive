@@ -336,13 +336,13 @@ export default function LeaderboardPage() {
     }
   });
 
-  // Format currency
+  // Format currency (convert from paise to rupees)
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
-      maximumFractionDigits: 0
-    }).format(amount);
+      maximumFractionDigits: 2
+    }).format(amount / 100);
   };
 
   // Format date
