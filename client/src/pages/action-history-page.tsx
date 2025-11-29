@@ -83,17 +83,9 @@ export default function ActionHistoryPage() {
     return matchesSearch;
   });
 
-  // Format amount based on type - transactions are in paisa (divide by 100)
-  // but game amounts are already in rupees for display (don't divide)
-  const formatAmount = (amount: number, type: 'transaction' | 'game' = 'transaction') => {
-    if (type === 'transaction') {
-      return (amount / 100).toFixed(2);
-    } else {
-      // For game amounts, check if they're in paisa or rupees format
-      // For bet amounts < 10000, it's likely already in rupees
-      // For bet amounts >= 10000, it could be in paisa (100 rupees = 10000 paisa)
-      return (amount >= 10000 ? (amount / 100).toFixed(2) : amount.toFixed(2));
-    }
+  // Format amount - all amounts are stored in paisa (divide by 100 to get rupees)
+  const formatAmount = (amount: number) => {
+    return (amount / 100).toFixed(2);
   };
 
   const formatDate = (dateStr: string) => {
@@ -135,7 +127,7 @@ export default function ActionHistoryPage() {
                   <span className={transaction.amount > 0 ? "text-green-600" : "text-red-600"}>
                     <div className="flex items-center gap-1">
                       {transaction.amount > 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-                      ${formatAmount(Math.abs(transaction.amount))}
+                      ₹{formatAmount(Math.abs(transaction.amount))}
                     </div>
                   </span>
                 </TableCell>
@@ -190,14 +182,14 @@ export default function ActionHistoryPage() {
                     </div>
                   </TableCell>
                 )}
-                <TableCell>${formatAmount(game.betAmount, 'game')}</TableCell>
+                <TableCell>₹{formatAmount(game.betAmount)}</TableCell>
                 <TableCell className="capitalize">{game.prediction}</TableCell>
                 <TableCell className="capitalize">{game.result}</TableCell>
                 <TableCell>
                   <span className={game.payout > 0 ? "text-green-600" : "text-red-600"}>
                     <div className="flex items-center gap-1">
                       <Coins className="h-4 w-4" />
-                      ${formatAmount(game.payout, 'game')}
+                      ₹{formatAmount(game.payout)}
                     </div>
                   </span>
                 </TableCell>

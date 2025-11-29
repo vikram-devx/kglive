@@ -838,9 +838,11 @@ app.get("/api/games/my-history", async (req, res, next) => {
             let description = '';
             if (isRecipientSubadmin) {
               const commissionAmount = amount - deductionAmount;
-              description = `Funds transferred to ${user.username} (${deductionAmount} of ${amount} - commission rate applied, commission: ${commissionAmount})`;
+              // Convert paisa to rupees for display in description (divide by 100)
+              description = `Funds transferred to ${user.username} (₹${(deductionAmount / 100).toFixed(2)} of ₹${(amount / 100).toFixed(2)} - commission rate applied, commission: ₹${(commissionAmount / 100).toFixed(2)})`;
             } else if (discountBonusAmount > 0) {
-              description = `Funds transferred to ${user.username} (Deposit discount applied: +${discountBonusAmount}, total deducted: ${deductionAmount})`;
+              // Convert paisa to rupees for display in description
+              description = `Funds transferred to ${user.username} (Deposit discount applied: +₹${(discountBonusAmount / 100).toFixed(2)}, total deducted: ₹${(deductionAmount / 100).toFixed(2)})`;
             } else {
               description = `Funds transferred to ${user.username}`;
             }
@@ -896,7 +898,8 @@ app.get("/api/games/my-history", async (req, res, next) => {
             let description = '';
             if (isSourceSubadmin) {
               const commissionAmount = additionAmount - Math.abs(amount);
-              description = `Funds recovered from ${user.username} (${additionAmount} of ${Math.abs(amount)} - commission rate applied, commission: ${commissionAmount})`;
+              // Convert paisa to rupees for display in description (divide by 100)
+              description = `Funds recovered from ${user.username} (₹${(additionAmount / 100).toFixed(2)} of ₹${(Math.abs(amount) / 100).toFixed(2)} - commission rate applied, commission: ₹${(commissionAmount / 100).toFixed(2)})`;
             } else {
               description = `Funds recovered from ${user.username}`;
             }
@@ -918,7 +921,8 @@ app.get("/api/games/my-history", async (req, res, next) => {
       // Apply bonus only if it's a deposit (positive amount) and there's a bonus to add
       if (amount > 0 && discountBonusAmount > 0) {
         totalAmount += discountBonusAmount;
-        bonusDescription = ` (includes ${discountBonusAmount} bonus)`;
+        // Convert paisa to rupees for display in description
+        bonusDescription = ` (includes ₹${(discountBonusAmount / 100).toFixed(2)} bonus)`;
       }
       
       // Prevent negative balance for the player
