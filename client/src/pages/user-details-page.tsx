@@ -700,11 +700,21 @@ export default function UserDetailsPage() {
                                     <>
                                       +₹{(game.betAmount * (
                                             (game.prediction === 'team_a' || game.prediction === 'Team_a') ? 
-                                              game.gameData.oddTeamA : 
+                                              (game.gameData.oddTeamA || 190) : 
                                             (game.prediction === 'team_b' || game.prediction === 'Team_b') ? 
-                                              game.gameData.oddTeamB : 
-                                            1.9
+                                              (game.gameData.oddTeamB || 190) : 
+                                            190
                                           ) / 100 / 100).toFixed(2)}
+                                    </>
+                                  ) : game.gameType.includes('satamatka') ? (
+                                    <>
+                                      +₹{(game.betAmount * (
+                                        game.gameMode === 'jodi' ? 90 :
+                                        game.gameMode === 'harf' ? 9 :
+                                        game.gameMode === 'crossing' ? 95 :
+                                        game.gameMode === 'odd_even' ? 1.9 :
+                                        1.9
+                                      ) / 100).toFixed(2)}
                                     </>
                                   ) : (
                                     <>+₹{(game.betAmount * 1.9 / 100).toFixed(2)}</>
