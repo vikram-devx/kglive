@@ -1418,6 +1418,7 @@ app.get("/api/games/my-history", async (req, res, next) => {
   });
 
   // Get all transactions (for admins and subadmins) or user's transactions
+  // Query parameter: ownOnly=true - returns only the current user's own transactions (for wallet history)
   app.get("/api/transactions", async (req, res, next) => {
     try {
       if (!req.isAuthenticated()) {
@@ -1426,7 +1427,13 @@ app.get("/api/games/my-history", async (req, res, next) => {
 
       let transactions;
       
-      if (req.user!.role === UserRole.ADMIN) {
+      // Check if ownOnly parameter is set - for wallet page to show only user's own transactions
+      const ownOnly = req.query.ownOnly === 'true';
+      
+      if (ownOnly) {
+        // Return only the current user's own transactions (for wallet history)
+        transactions = await storage.getTransactionsByUserId(req.user!.id);
+      } else if (req.user!.role === UserRole.ADMIN) {
         // Admins can see all transactions
         transactions = await storage.getAllTransactions();
       } else if (req.user!.role === UserRole.SUBADMIN) {

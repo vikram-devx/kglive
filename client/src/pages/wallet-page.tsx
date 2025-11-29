@@ -186,12 +186,20 @@ export default function WalletPage() {
   });
   
   // Fetch user's direct transactions (fund transfers, etc.)
+  // Use ownOnly=true to only fetch current user's own transactions (not assigned players' transactions)
   const {
     data: transactions = [],
     isLoading: loadingTransactions,
     refetch: refetchTransactions
   } = useQuery<any[]>({
-    queryKey: ["/api/transactions"],
+    queryKey: ["/api/transactions", "ownOnly"],
+    queryFn: async () => {
+      const response = await fetch("/api/transactions?ownOnly=true", {
+        credentials: "include"
+      });
+      if (!response.ok) throw new Error("Failed to fetch transactions");
+      return response.json();
+    },
     enabled: activeTab === "history" || activeTab === "balance"
   });
 
