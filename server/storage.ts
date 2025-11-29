@@ -44,7 +44,7 @@ import {
 } from "@shared/schema";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { eq, desc, and, lt, gt, gte, lte, ne, isNotNull, or, sql, asc, count, isNull, like, not } from 'drizzle-orm';
+import { eq, desc, and, lt, gt, gte, lte, ne, isNotNull, or, sql, asc, count, isNull, like, not, inArray } from 'drizzle-orm';
 import { pool } from "./db";
 
 /**
@@ -329,7 +329,7 @@ export class DatabaseStorage implements IStorage {
     
     return await db.select()
       .from(games)
-      .where(sql`${games.userId} IN (${userIds.join(', ')})`)
+      .where(inArray(games.userId, userIds))
       .orderBy(desc(games.createdAt));
   }
 
@@ -595,7 +595,7 @@ export class DatabaseStorage implements IStorage {
     
     return await db.select()
       .from(transactions)
-      .where(sql`${transactions.userId} IN (${userIds.join(', ')})`)
+      .where(inArray(transactions.userId, userIds))
       .orderBy(desc(transactions.createdAt));
   }
 
