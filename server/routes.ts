@@ -340,20 +340,56 @@ app.get("/api/games/my-history", async (req, res, next) => {
 
       let games = await storage.getGamesByUserId(req.user!.id);
       
-      // Enhance team match games with team data if needed
-      games = games.map(game => {
-        // For team_match games, ensure we include proper team data in gameData
-        if (game.gameType === 'team_match' && game.match && !game.gameData) {
-          return {
-            ...game,
-            gameData: {
-              teamA: game.match.teamA,
-              teamB: game.match.teamB
+      // Enrich satamatka games with market data
+      const satamatkaGames = games.filter(g => g.gameType === 'satamatka' && g.marketId);
+      const marketIds = [...new Set(satamatkaGames.map(g => g.marketId!))];
+      
+      if (marketIds.length > 0) {
+        const markets = await storage.getSatamatkaMarketsByIds(marketIds);
+        const marketMap = new Map(markets.map(m => [m.id, m]));
+        
+        games = games.map(game => {
+          if (game.gameType === 'satamatka' && game.marketId) {
+            const market = marketMap.get(game.marketId);
+            if (market) {
+              return {
+                ...game,
+                market: {
+                  id: market.id,
+                  name: market.name,
+                  type: market.type
+                }
+              };
             }
-          };
-        }
-        return game;
-      });
+          }
+          // For team_match games, ensure we include proper team data in gameData
+          if (game.gameType === 'team_match' && game.match && !game.gameData) {
+            return {
+              ...game,
+              gameData: {
+                teamA: game.match.teamA,
+                teamB: game.match.teamB
+              }
+            };
+          }
+          return game;
+        });
+      } else {
+        // Enhance team match games with team data if needed
+        games = games.map(game => {
+          // For team_match games, ensure we include proper team data in gameData
+          if (game.gameType === 'team_match' && game.match && !game.gameData) {
+            return {
+              ...game,
+              gameData: {
+                teamA: game.match.teamA,
+                teamB: game.match.teamB
+              }
+            };
+          }
+          return game;
+        });
+      }
 
       res.json(games);
     } catch (err) {
