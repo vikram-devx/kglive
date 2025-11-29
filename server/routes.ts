@@ -1357,7 +1357,34 @@ app.get("/api/games/my-history", async (req, res, next) => {
   app.get("/api/games/recent", requireRole([UserRole.ADMIN, UserRole.SUBADMIN]), async (req, res, next) => {
     try {
       // Get recent games limited to 10
-      const games = await storage.getAllGames(10);
+      let games = await storage.getAllGames(10);
+      
+      // Enrich satamatka games with market data
+      const satamatkaGames = games.filter(g => g.gameType === 'satamatka' && g.marketId);
+      const marketIds = [...new Set(satamatkaGames.map(g => g.marketId!))];
+      
+      if (marketIds.length > 0) {
+        const markets = await storage.getSatamatkaMarketsByIds(marketIds);
+        const marketMap = new Map(markets.map(m => [m.id, m]));
+        
+        games = games.map(game => {
+          if (game.gameType === 'satamatka' && game.marketId) {
+            const market = marketMap.get(game.marketId);
+            if (market) {
+              return {
+                ...game,
+                market: {
+                  id: market.id,
+                  name: market.name,
+                  type: market.type
+                }
+              };
+            }
+          }
+          return game;
+        });
+      }
+      
       res.json(games);
     } catch (err) {
       next(err);
@@ -1392,6 +1419,32 @@ app.get("/api/games/my-history", async (req, res, next) => {
         games = await storage.getGamesByUserId(req.user!.id);
       }
       
+      // Enrich satamatka games with market data
+      const satamatkaGames = games.filter(g => g.gameType === 'satamatka' && g.marketId);
+      const marketIds = [...new Set(satamatkaGames.map(g => g.marketId!))];
+      
+      if (marketIds.length > 0) {
+        const markets = await storage.getSatamatkaMarketsByIds(marketIds);
+        const marketMap = new Map(markets.map(m => [m.id, m]));
+        
+        games = games.map(game => {
+          if (game.gameType === 'satamatka' && game.marketId) {
+            const market = marketMap.get(game.marketId);
+            if (market) {
+              return {
+                ...game,
+                market: {
+                  id: market.id,
+                  name: market.name,
+                  type: market.type
+                }
+              };
+            }
+          }
+          return game;
+        });
+      }
+      
       res.json(games);
     } catch (err) {
       next(err);
@@ -1414,7 +1467,34 @@ app.get("/api/games/my-history", async (req, res, next) => {
         return res.status(403).json({ message: "You don't have permission to view this user's data" });
       }
       
-      const games = await storage.getGamesByUserId(userId);
+      let games = await storage.getGamesByUserId(userId);
+      
+      // Enrich satamatka games with market data
+      const satamatkaGames = games.filter(g => g.gameType === 'satamatka' && g.marketId);
+      const marketIds = [...new Set(satamatkaGames.map(g => g.marketId!))];
+      
+      if (marketIds.length > 0) {
+        const markets = await storage.getSatamatkaMarketsByIds(marketIds);
+        const marketMap = new Map(markets.map(m => [m.id, m]));
+        
+        games = games.map(game => {
+          if (game.gameType === 'satamatka' && game.marketId) {
+            const market = marketMap.get(game.marketId);
+            if (market) {
+              return {
+                ...game,
+                market: {
+                  id: market.id,
+                  name: market.name,
+                  type: market.type
+                }
+              };
+            }
+          }
+          return game;
+        });
+      }
+      
       res.json(games);
     } catch (err) {
       next(err);
