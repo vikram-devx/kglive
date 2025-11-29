@@ -886,6 +886,7 @@ app.get("/api/games/my-history", async (req, res, next) => {
             await storage.createTransaction({
               userId: adminOrSubadmin.id,
               amount: -deductionAmount,
+              balanceAfter: adminOrSubadmin.balance - deductionAmount,
               performedBy: adminOrSubadmin.id,
               description,
             });
@@ -943,6 +944,7 @@ app.get("/api/games/my-history", async (req, res, next) => {
             await storage.createTransaction({
               userId: adminOrSubadmin.id,
               amount: additionAmount,
+              balanceAfter: adminOrSubadmin.balance + additionAmount,
               performedBy: adminOrSubadmin.id,
               description,
             });
@@ -980,18 +982,21 @@ app.get("/api/games/my-history", async (req, res, next) => {
         
       // If a bonus was added, create two separate transaction records
       if (amount > 0 && discountBonusAmount > 0) {
-        // First transaction for the original deposit
+        // First transaction for the original deposit (intermediate balance)
+        const intermediateBalance = user.balance + amount;
         await storage.createTransaction({
           userId,
           amount,
+          balanceAfter: intermediateBalance,
           performedBy: req.user!.id,
           description: transactionDesc
         });
         
-        // Second transaction for the bonus amount
+        // Second transaction for the bonus amount (final balance)
         await storage.createTransaction({
           userId,
           amount: discountBonusAmount,
+          balanceAfter: newBalance,
           performedBy: req.user!.id,
           description: `Deposit bonus (${(discountBonusAmount * 100 / amount).toFixed(2)}% of ${amount})`
         });
@@ -1000,6 +1005,7 @@ app.get("/api/games/my-history", async (req, res, next) => {
         await storage.createTransaction({
           userId,
           amount,
+          balanceAfter: newBalance,
           performedBy: req.user!.id,
           description: transactionDesc
         });
