@@ -106,6 +106,7 @@ export const users = pgTable("users", {
   isBlocked: boolean("is_blocked").notNull().default(false),
   blockedBy: integer("blocked_by").references(() => users.id),
   rewardCommission: integer("reward_commission").notNull().default(0), // percentage (stored as integer, e.g. 500 = 5.00%)
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(users)

@@ -303,7 +303,11 @@ export default function UserDetailsPage() {
               <div className="text-sm text-muted-foreground mb-1">Member Since</div>
               <div className="font-semibold flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-purple-400" />
-                <span>{new Date(selectedUser.createdAt).toLocaleDateString()}</span>
+                <span>
+                  {selectedUser.createdAt 
+                    ? new Date(selectedUser.createdAt).toLocaleDateString() 
+                    : "N/A"}
+                </span>
               </div>
             </div>
           </div>
