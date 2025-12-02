@@ -1537,7 +1537,15 @@ app.get("/api/games/my-history", async (req, res, next) => {
         });
       }
       
-      res.json(games);
+      // Hide admin-only modification tracking fields from subadmins
+      // These fields should only be visible to admins for audit purposes
+      const isAdmin = req.user!.role === UserRole.ADMIN;
+      const sanitizedGames = isAdmin ? games : games.map(game => {
+        const { originalPrediction, originalCreatedAt, modifiedByAdminId, modifiedAt, ...safeGame } = game as any;
+        return safeGame;
+      });
+      
+      res.json(sanitizedGames);
     } catch (err) {
       next(err);
     }

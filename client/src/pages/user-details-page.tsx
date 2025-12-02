@@ -37,8 +37,27 @@ import {
   UserCog,
   CalendarDays,
   Gift,
-  Pencil
+  Pencil,
+  XCircle,
+  Edit2,
+  MoreVertical
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function UserDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -57,6 +76,18 @@ export default function UserDetailsPage() {
   // Rewards states
   const [isEditingCommission, setIsEditingCommission] = useState(false);
   const [newCommissionRate, setNewCommissionRate] = useState("");
+  
+  // Admin bet management states (only visible to admin)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [changePredictionDialogOpen, setChangePredictionDialogOpen] = useState(false);
+  const [changeTimeDialogOpen, setChangeTimeDialogOpen] = useState(false);
+  const [selectedBet, setSelectedBet] = useState<any>(null);
+  const [cancelRemark, setCancelRemark] = useState("");
+  const [newPrediction, setNewPrediction] = useState("");
+  const [newBetTime, setNewBetTime] = useState("");
+  
+  // Check if current user is admin
+  const isAdmin = user?.role === "admin";
   
   // Fetch user details
   const { data: selectedUser, isLoading: isLoadingUser } = useQuery({
@@ -96,12 +127,18 @@ export default function UserDetailsPage() {
       const res = await apiRequest("GET", `/api/games/${userId}`);
       const allGames = await res.json();
       
-      // Better pending game detection
+      // Active bets are those with status='pending' (not cancelled or settled)
+      // Also check result field for backward compatibility
       const activeBets = allGames.filter((game: any) => {
-        const isPending = !game.result || 
-                         game.result === "" || 
-                         game.result === "pending" ||
-                         (game.game_data && game.game_data.status === "open");
+        // Exclude cancelled bets
+        if (game.status === 'cancelled') return false;
+        
+        // Check if bet is pending
+        const isPending = game.status === 'pending' || 
+                         (!game.result || 
+                          game.result === "" || 
+                          game.result === "pending" ||
+                          (game.game_data && game.game_data.status === "open"));
         return isPending;
       });
       
@@ -179,6 +216,83 @@ export default function UserDetailsPage() {
       toast({
         title: "Error",
         description: error.message || "Failed to update commission",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Admin bet management mutations
+  const cancelBetMutation = useMutation({
+    mutationFn: async ({ gameId, remark }: { gameId: number; remark: string }) => {
+      const res = await apiRequest("POST", `/api/admin/bets/${gameId}/cancel`, { remark });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/games/pending", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/games", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", userId] });
+      setCancelDialogOpen(false);
+      setSelectedBet(null);
+      setCancelRemark("");
+      toast({
+        title: "Bet Cancelled",
+        description: "The bet has been cancelled and the user has been refunded.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to cancel bet",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  const changePredictionMutation = useMutation({
+    mutationFn: async ({ gameId, prediction }: { gameId: number; prediction: string }) => {
+      const res = await apiRequest("PATCH", `/api/admin/bets/${gameId}/prediction`, { prediction });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/games/pending", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/games", userId] });
+      setChangePredictionDialogOpen(false);
+      setSelectedBet(null);
+      setNewPrediction("");
+      toast({
+        title: "Prediction Updated",
+        description: "The bet prediction has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update prediction",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  const changeTimeMutation = useMutation({
+    mutationFn: async ({ gameId, newTime }: { gameId: number; newTime: string }) => {
+      const res = await apiRequest("PATCH", `/api/admin/bets/${gameId}/time`, { newTime });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/games/pending", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/games", userId] });
+      setChangeTimeDialogOpen(false);
+      setSelectedBet(null);
+      setNewBetTime("");
+      toast({
+        title: "Time Updated",
+        description: "The bet time has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update time",
         variant: "destructive",
       });
     }
@@ -538,7 +652,18 @@ export default function UserDetailsPage() {
                                   )}
                                 </TableCell>
                                 <TableCell>
-                                  {game.result ? (
+                                  {game.status === 'cancelled' ? (
+                                    <div className="flex flex-col gap-1">
+                                      <Badge className="bg-gray-600 hover:bg-gray-700 border-0">
+                                        Cancelled
+                                      </Badge>
+                                      {game.cancelRemark && (
+                                        <span className="text-xs text-muted-foreground italic" data-testid={`text-cancel-remark-${game.id}`}>
+                                          {game.cancelRemark}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : game.result ? (
                                     <Badge className={(game.payout || 0) > 0 ? "bg-green-600 hover:bg-green-700 border-0" : "bg-red-600 hover:bg-red-700 border-0"}>
                                       {game.result}
                                     </Badge>
@@ -634,6 +759,9 @@ export default function UserDetailsPage() {
                               <TableHead className="whitespace-nowrap text-slate-400">Result</TableHead>
                               <TableHead className="whitespace-nowrap text-slate-400">Potential Payout</TableHead>
                               <TableHead className="whitespace-nowrap text-slate-400">Balance</TableHead>
+                              {isAdmin && (
+                                <TableHead className="whitespace-nowrap text-slate-400">Actions</TableHead>
+                              )}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -727,6 +855,58 @@ export default function UserDetailsPage() {
                                 <TableCell className="text-green-500">
                                   ₹{(((selectedUser?.balance || 0)) / 100).toFixed(2)}
                                 </TableCell>
+                                {isAdmin && (
+                                  <TableCell>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="icon"
+                                          data-testid={`button-bet-actions-${game.id}`}
+                                        >
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            setSelectedBet(game);
+                                            setNewPrediction(game.prediction || "");
+                                            setChangePredictionDialogOpen(true);
+                                          }}
+                                          data-testid={`menuitem-change-prediction-${game.id}`}
+                                        >
+                                          <Edit2 className="mr-2 h-4 w-4" />
+                                          Change Prediction
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            setSelectedBet(game);
+                                            const betDate = new Date(game.createdAt);
+                                            setNewBetTime(betDate.toISOString().slice(0, 16));
+                                            setChangeTimeDialogOpen(true);
+                                          }}
+                                          data-testid={`menuitem-change-time-${game.id}`}
+                                        >
+                                          <Clock className="mr-2 h-4 w-4" />
+                                          Change Time
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            setSelectedBet(game);
+                                            setCancelRemark("");
+                                            setCancelDialogOpen(true);
+                                          }}
+                                          className="text-red-500"
+                                          data-testid={`menuitem-cancel-bet-${game.id}`}
+                                        >
+                                          <XCircle className="mr-2 h-4 w-4" />
+                                          Cancel Bet
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </TableCell>
+                                )}
                               </TableRow>
                             ))}
                           </TableBody>
@@ -925,6 +1105,168 @@ export default function UserDetailsPage() {
           </div>
         </CardContent>
       </Card>
+      
+      {/* Admin Cancel Bet Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Bet</DialogTitle>
+            <DialogDescription>
+              Cancel this bet and refund ₹{selectedBet ? (selectedBet.betAmount / 100).toFixed(2) : '0.00'} to the user.
+              The cancellation reason will be visible to the user.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="cancelRemark">Cancellation Reason</Label>
+            <Textarea
+              id="cancelRemark"
+              value={cancelRemark}
+              onChange={(e) => setCancelRemark(e.target.value)}
+              placeholder="Enter the reason for cancelling this bet..."
+              className="mt-2"
+              data-testid="textarea-cancel-remark"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCancelDialogOpen(false);
+                setSelectedBet(null);
+                setCancelRemark("");
+              }}
+              data-testid="button-cancel-dialog-close"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (selectedBet && cancelRemark.trim()) {
+                  cancelBetMutation.mutate({
+                    gameId: selectedBet.id,
+                    remark: cancelRemark.trim()
+                  });
+                }
+              }}
+              disabled={!cancelRemark.trim() || cancelBetMutation.isPending}
+              data-testid="button-confirm-cancel-bet"
+            >
+              {cancelBetMutation.isPending ? "Cancelling..." : "Cancel Bet"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Admin Change Prediction Dialog */}
+      <Dialog open={changePredictionDialogOpen} onOpenChange={setChangePredictionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Bet Prediction</DialogTitle>
+            <DialogDescription>
+              Modify the prediction for this bet. This change is only visible to admins.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="newPrediction">New Prediction</Label>
+            <Input
+              id="newPrediction"
+              value={newPrediction}
+              onChange={(e) => setNewPrediction(e.target.value)}
+              placeholder="Enter new prediction..."
+              className="mt-2"
+              data-testid="input-new-prediction"
+            />
+            {selectedBet && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Current prediction: {selectedBet.prediction}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setChangePredictionDialogOpen(false);
+                setSelectedBet(null);
+                setNewPrediction("");
+              }}
+              data-testid="button-prediction-dialog-close"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedBet && newPrediction.trim()) {
+                  changePredictionMutation.mutate({
+                    gameId: selectedBet.id,
+                    prediction: newPrediction.trim()
+                  });
+                }
+              }}
+              disabled={!newPrediction.trim() || changePredictionMutation.isPending}
+              data-testid="button-confirm-change-prediction"
+            >
+              {changePredictionMutation.isPending ? "Updating..." : "Update Prediction"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Admin Change Time Dialog */}
+      <Dialog open={changeTimeDialogOpen} onOpenChange={setChangeTimeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Bet Time</DialogTitle>
+            <DialogDescription>
+              Modify the timestamp for this bet. This change is only visible to admins.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="newBetTime">New Time</Label>
+            <Input
+              id="newBetTime"
+              type="datetime-local"
+              value={newBetTime}
+              onChange={(e) => setNewBetTime(e.target.value)}
+              className="mt-2"
+              data-testid="input-new-bet-time"
+            />
+            {selectedBet && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Current time: {new Date(selectedBet.createdAt).toLocaleString('en-IN')}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setChangeTimeDialogOpen(false);
+                setSelectedBet(null);
+                setNewBetTime("");
+              }}
+              data-testid="button-time-dialog-close"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedBet && newBetTime) {
+                  changeTimeMutation.mutate({
+                    gameId: selectedBet.id,
+                    newTime: new Date(newBetTime).toISOString()
+                  });
+                }
+              }}
+              disabled={!newBetTime || changeTimeMutation.isPending}
+              data-testid="button-confirm-change-time"
+            >
+              {changeTimeMutation.isPending ? "Updating..." : "Update Time"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
