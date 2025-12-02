@@ -3998,6 +3998,102 @@ app.get("/api/odds/admin", requireRole([UserRole.ADMIN, UserRole.SUBADMIN]), asy
     }
   });
 
+  // =============================================
+  // ADMIN BET MANAGEMENT ENDPOINTS
+  // =============================================
+
+  // Get active bets for a specific user (admin only)
+  app.get("/api/admin/users/:userId/active-bets", requireRole([UserRole.ADMIN]), async (req, res, next) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      const activeBets = await storage.getActiveBetsByUserId(userId);
+      res.json(activeBets);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Cancel a bet with remark (admin only) - refunds the user
+  app.post("/api/admin/bets/:gameId/cancel", requireRole([UserRole.ADMIN]), async (req, res, next) => {
+    try {
+      const gameId = parseInt(req.params.gameId);
+      if (isNaN(gameId)) {
+        return res.status(400).json({ message: "Invalid bet ID" });
+      }
+      
+      const { remark } = req.body;
+      if (!remark || typeof remark !== 'string' || remark.trim().length === 0) {
+        return res.status(400).json({ message: "Cancellation remark is required" });
+      }
+      
+      const game = await storage.cancelBet(gameId, req.user!.id, remark.trim());
+      if (!game) {
+        return res.status(404).json({ message: "Bet not found or already settled/cancelled" });
+      }
+      
+      res.json({ message: "Bet cancelled successfully", game });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Update bet prediction/number (admin only - hidden from users/subadmins)
+  app.patch("/api/admin/bets/:gameId/prediction", requireRole([UserRole.ADMIN]), async (req, res, next) => {
+    try {
+      const gameId = parseInt(req.params.gameId);
+      if (isNaN(gameId)) {
+        return res.status(400).json({ message: "Invalid bet ID" });
+      }
+      
+      const { prediction } = req.body;
+      if (!prediction || typeof prediction !== 'string' || prediction.trim().length === 0) {
+        return res.status(400).json({ message: "New prediction is required" });
+      }
+      
+      const game = await storage.updateBetPrediction(gameId, req.user!.id, prediction.trim());
+      if (!game) {
+        return res.status(404).json({ message: "Bet not found or already settled/cancelled" });
+      }
+      
+      res.json({ message: "Bet prediction updated successfully", game });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Update bet time (admin only - hidden from users/subadmins)
+  app.patch("/api/admin/bets/:gameId/time", requireRole([UserRole.ADMIN]), async (req, res, next) => {
+    try {
+      const gameId = parseInt(req.params.gameId);
+      if (isNaN(gameId)) {
+        return res.status(400).json({ message: "Invalid bet ID" });
+      }
+      
+      const { newTime } = req.body;
+      if (!newTime) {
+        return res.status(400).json({ message: "New time is required" });
+      }
+      
+      const parsedTime = new Date(newTime);
+      if (isNaN(parsedTime.getTime())) {
+        return res.status(400).json({ message: "Invalid time format" });
+      }
+      
+      const game = await storage.updateBetTime(gameId, req.user!.id, parsedTime);
+      if (!game) {
+        return res.status(404).json({ message: "Bet not found or already settled/cancelled" });
+      }
+      
+      res.json({ message: "Bet time updated successfully", game });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // Register cricket toss API routes
   await import('./cricket-toss-api').then((module) => {
     app.use('/api/cricket-toss', module.default);
