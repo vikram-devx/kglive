@@ -70,6 +70,15 @@ export const SatamatkaGameMode = {
 
 export type SatamatkaGameModeValue = typeof SatamatkaGameMode[keyof typeof SatamatkaGameMode];
 
+// Bet status for games
+export const BetStatus = {
+  PENDING: "pending",     // Bet is active, waiting for result
+  SETTLED: "settled",     // Bet has been settled (win/loss)
+  CANCELLED: "cancelled", // Bet was cancelled by admin
+} as const;
+
+export type BetStatusValue = typeof BetStatus[keyof typeof BetStatus];
+
 // Payment Method Enums
 export const PaymentMode = {
   UPI: 'upi',
@@ -146,6 +155,14 @@ export const games = pgTable("games", {
   matchId: integer("match_id").references(() => teamMatches.id),
   gameMode: text("game_mode"), // For satamatka: "single", "jodi", "patti"
   gameData: jsonb("game_data"), // For cricket_toss: team names, odds, etc.
+  // Bet management fields
+  status: text("status").notNull().default(BetStatus.PENDING), // pending, settled, cancelled
+  cancelRemark: text("cancel_remark"), // Reason for cancellation (visible to user)
+  // Admin-only tracking fields (not exposed to users/subadmins)
+  originalPrediction: text("original_prediction"), // Original bet number before admin changed it
+  originalCreatedAt: timestamp("original_created_at"), // Original bet time before admin changed it
+  modifiedByAdminId: integer("modified_by_admin_id").references(() => users.id), // Admin who made changes
+  modifiedAt: timestamp("modified_at"), // When admin made changes
 });
 
 export const insertGameSchema = createInsertSchema(games)

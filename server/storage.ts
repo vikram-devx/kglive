@@ -74,9 +74,15 @@ export interface IStorage {
   getGamesByUserIds(userIds: number[]): Promise<Game[]>;
   getAllGames(limit?: number): Promise<Game[]>;
   getActiveGames(): Promise<Game[]>;
+  getActiveBetsByUserId(userId: number): Promise<Game[]>;
   getRecentGames(userId: number, limit?: number): Promise<Game[]>;
   updateGameStatus(gameId: number, status: string): Promise<Game | undefined>;
   updateGameResult(gameId: number, result: string, payout?: number): Promise<Game | undefined>;
+  
+  // Admin bet management methods
+  cancelBet(gameId: number, adminId: number, cancelRemark: string): Promise<Game | undefined>;
+  updateBetPrediction(gameId: number, adminId: number, newPrediction: string): Promise<Game | undefined>;
+  updateBetTime(gameId: number, adminId: number, newTime: Date): Promise<Game | undefined>;
 
   // Satamatka Market methods
   createSatamatkaMarket(market: InsertSatamatkaMarket): Promise<SatamatkaMarket>;
@@ -386,6 +392,103 @@ export class DatabaseStorage implements IStorage {
     
     const [game] = await db.update(games)
       .set(updateData)
+      .where(eq(games.id, gameId))
+      .returning();
+    return game;
+  }
+
+  // Get active bets for a specific user (pending bets that haven't been settled or cancelled)
+  async getActiveBetsByUserId(userId: number): Promise<Game[]> {
+    return await db.select()
+      .from(games)
+      .where(
+        and(
+          eq(games.userId, userId),
+          eq(games.status, 'pending'),
+          or(
+            isNull(games.result),
+            eq(games.result, 'pending')
+          )
+        )
+      )
+      .orderBy(desc(games.createdAt));
+  }
+
+  // Admin bet management methods
+  async cancelBet(gameId: number, adminId: number, cancelRemark: string): Promise<Game | undefined> {
+    // First get the existing game to refund the user
+    const existingGame = await this.getGame(gameId);
+    if (!existingGame) return undefined;
+    
+    // Only allow cancelling pending bets
+    if (existingGame.status !== 'pending') {
+      return undefined;
+    }
+    
+    // Refund the bet amount to the user
+    const user = await this.getUser(existingGame.userId);
+    if (user) {
+      await this.updateUserBalance(user.id, user.balance + existingGame.betAmount);
+    }
+    
+    // Update the game status to cancelled with remark
+    const [game] = await db.update(games)
+      .set({
+        status: 'cancelled',
+        cancelRemark: cancelRemark,
+        modifiedByAdminId: adminId,
+        modifiedAt: new Date()
+      })
+      .where(eq(games.id, gameId))
+      .returning();
+    return game;
+  }
+
+  async updateBetPrediction(gameId: number, adminId: number, newPrediction: string): Promise<Game | undefined> {
+    // First get the existing game
+    const existingGame = await this.getGame(gameId);
+    if (!existingGame) return undefined;
+    
+    // Only allow updating pending bets
+    if (existingGame.status !== 'pending') {
+      return undefined;
+    }
+    
+    // Store original prediction if not already stored
+    const originalPrediction = existingGame.originalPrediction || existingGame.prediction;
+    
+    const [game] = await db.update(games)
+      .set({
+        prediction: newPrediction,
+        originalPrediction: originalPrediction,
+        modifiedByAdminId: adminId,
+        modifiedAt: new Date()
+      })
+      .where(eq(games.id, gameId))
+      .returning();
+    return game;
+  }
+
+  async updateBetTime(gameId: number, adminId: number, newTime: Date): Promise<Game | undefined> {
+    // First get the existing game
+    const existingGame = await this.getGame(gameId);
+    if (!existingGame) return undefined;
+    
+    // Only allow updating pending bets
+    if (existingGame.status !== 'pending') {
+      return undefined;
+    }
+    
+    // Store original time if not already stored
+    const originalCreatedAt = existingGame.originalCreatedAt || existingGame.createdAt;
+    
+    const [game] = await db.update(games)
+      .set({
+        createdAt: newTime,
+        originalCreatedAt: originalCreatedAt,
+        modifiedByAdminId: adminId,
+        modifiedAt: new Date()
+      })
       .where(eq(games.id, gameId))
       .returning();
     return game;
