@@ -1048,7 +1048,7 @@ export default function SimplifiedRiskPage() {
                       {viewMode === 'odd-even' ? (
                         <div className="p-4">
                           <h3 className="text-lg font-bold mb-4">Odd/Even Risk Management</h3>
-                          <div className="grid grid-cols-2 gap-6">
+                          <div className="grid grid-cols-1 gap-6">
                             {/* Odd Numbers Section */}
                             <Card>
                               <CardHeader>
