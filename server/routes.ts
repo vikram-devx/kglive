@@ -769,10 +769,15 @@ app.get("/api/games/my-history", async (req, res, next) => {
     
     try {
       const userId = Number(req.params.id);
-      const { amount, description } = req.body;
+      const { amount, description, creditReference } = req.body;
 
       if (typeof amount !== 'number') {
         return res.status(400).json({ message: "Invalid amount" });
+      }
+      
+      // Update credit reference if provided (stored as paisa)
+      if (typeof creditReference === 'number' && creditReference >= 0) {
+        await storage.updateUserCreditReference(userId, creditReference);
       }
 
       const user = await storage.getUser(userId);

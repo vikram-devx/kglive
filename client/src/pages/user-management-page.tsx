@@ -299,8 +299,8 @@ export default function UserManagementPage() {
 
   // Update balance mutation
   const updateBalanceMutation = useMutation({
-    mutationFn: async ({ userId, amount, description }: { userId: number; amount: number; description?: string }) => {
-      const res = await apiRequest("PATCH", `/api/users/${userId}/balance`, { amount, description });
+    mutationFn: async ({ userId, amount, description, creditReference }: { userId: number; amount: number; description?: string; creditReference?: number }) => {
+      const res = await apiRequest("PATCH", `/api/users/${userId}/balance`, { amount, description, creditReference });
       return await res.json();
     },
     onSuccess: () => {
@@ -569,32 +569,30 @@ export default function UserManagementPage() {
   const handleAddFunds = () => {
     if (!selectedUser || amount <= 0) return;
     
-    // Save starting balance to localStorage if provided
-    if (startingBalance) {
-      localStorage.setItem(`startingBalance_${selectedUser.id}`, startingBalance);
-    }
+    // Convert rupee amount to paisa (multiply by 100)
+    const creditRefInPaisa = startingBalance ? Math.round(parseFloat(startingBalance) * 100) : undefined;
     
-    // Convert dollar amount to cents (multiply by 100)
+    // Convert rupee amount to paisa (multiply by 100)
     updateBalanceMutation.mutate({ 
       userId: selectedUser.id, 
       amount: amount * 100,
-      description: remark ? remark : `Funds added by ${user?.username}`
+      description: remark ? remark : `Funds added by ${user?.username}`,
+      creditReference: creditRefInPaisa
     });
   };
 
   const handleRemoveFunds = () => {
     if (!selectedUser || amount <= 0) return;
     
-    // Save starting balance to localStorage if provided
-    if (startingBalance) {
-      localStorage.setItem(`startingBalance_${selectedUser.id}`, startingBalance);
-    }
+    // Convert rupee amount to paisa (multiply by 100)
+    const creditRefInPaisa = startingBalance ? Math.round(parseFloat(startingBalance) * 100) : undefined;
     
-    // Convert dollar amount to cents (multiply by 100)
+    // Convert rupee amount to paisa (multiply by 100)
     updateBalanceMutation.mutate({ 
       userId: selectedUser.id, 
       amount: -amount * 100,
-      description: remark ? remark : `Funds deducted by ${user?.username}`
+      description: remark ? remark : `Funds deducted by ${user?.username}`,
+      creditReference: creditRefInPaisa
     });
   };
 
@@ -667,10 +665,9 @@ export default function UserManagementPage() {
     setAmount(0);
     setRemark("");
     
-    // Load saved starting balance from localStorage
-    const savedStartingBalance = localStorage.getItem(`startingBalance_${targetUser.id}`);
-    if (savedStartingBalance) {
-      setStartingBalance(savedStartingBalance);
+    // Load credit reference from database (convert from paisa to rupees for display)
+    if (targetUser.creditReference) {
+      setStartingBalance((targetUser.creditReference / 100).toString());
     } else {
       setStartingBalance("");
     }
@@ -699,10 +696,9 @@ export default function UserManagementPage() {
     setAmount(0);
     setRemark("");
     
-    // Load saved starting balance from localStorage
-    const savedStartingBalance = localStorage.getItem(`startingBalance_${targetUser.id}`);
-    if (savedStartingBalance) {
-      setStartingBalance(savedStartingBalance);
+    // Load credit reference from database (convert from paisa to rupees for display)
+    if (targetUser.creditReference) {
+      setStartingBalance((targetUser.creditReference / 100).toString());
     } else {
       setStartingBalance("");
     }
@@ -987,11 +983,7 @@ export default function UserManagementPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {(() => {
-                            // Get credit reference from localStorage
-                            const creditRef = localStorage.getItem(`startingBalance_${tableUser.id}`);
-                            return creditRef ? `₹${creditRef}` : '-';
-                          })()}
+                          {tableUser.creditReference ? `₹${(tableUser.creditReference / 100).toFixed(2)}` : '-'}
                         </TableCell>
                         <TableCell>₹{(tableUser.balance / 100).toFixed(2)}</TableCell>
                         <TableCell>

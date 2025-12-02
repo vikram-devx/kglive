@@ -111,6 +111,7 @@ export const users = pgTable("users", {
   mobile: text("mobile"),
   role: text("role").notNull().default(UserRole.PLAYER), // admin, subadmin, player
   balance: integer("balance").notNull().default(0),
+  creditReference: integer("credit_reference").notNull().default(0), // Credit reference amount set by admin (in cents)
   assignedTo: integer("assigned_to").references(() => users.id),
   isBlocked: boolean("is_blocked").notNull().default(false),
   blockedBy: integer("blocked_by").references(() => users.id),

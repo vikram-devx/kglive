@@ -59,6 +59,7 @@ export interface IStorage {
   getUsersByAssignedTo(assignedToId: number): Promise<User[]>;
   getUsersByIds(userIds: number[]): Promise<User[]>;
   updateUserBalance(userId: number, newBalance: number): Promise<User | undefined>;
+  updateUserCreditReference(userId: number, creditReference: number): Promise<User | undefined>;
   updateUser(userId: number, data: {username?: string; password?: string}): Promise<User | undefined>;
   updateUserPassword(userId: number, hashedPassword: string): Promise<User | undefined>;
   blockUser(userId: number, blockedById: number): Promise<User | undefined>;
@@ -218,6 +219,14 @@ export class DatabaseStorage implements IStorage {
   async updateUserBalance(userId: number, newBalance: number): Promise<User | undefined> {
     const [user] = await db.update(users)
       .set({ balance: newBalance })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async updateUserCreditReference(userId: number, creditReference: number): Promise<User | undefined> {
+    const [user] = await db.update(users)
+      .set({ creditReference })
       .where(eq(users.id, userId))
       .returning();
     return user;
