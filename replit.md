@@ -143,3 +143,41 @@ Preferred communication style: Simple, everyday language.
 
 ### Optional Integrations
 - **Stripe**: Payment processing capability (libraries included but not actively used in core flows)
+
+## Recent Changes (December 2, 2025)
+
+### Features Added
+
+1. **Credit Reference (CR) Field**
+   - Added permanent `creditReference` field to users table (stored in paisa)
+   - Admins can set and update CR when adding/removing funds
+   - CR persists in database until manually updated
+   - Displays in user management list or "-" if not set
+   - Backend endpoint: `PATCH /api/users/:id/balance` accepts optional `creditReference` parameter
+
+2. **Rewards Column in User Management**
+   - New "Rewards" column added to user list after Status column
+   - For **Players**: Shows calculated 7-day satamatka rewards based on their bet amount × reward commission rate
+   - For **Subadmins**: Shows total 7-day bet amount from all assigned players × subadmin's reward commission rate
+   - Displays as "₹X.XX" or "-" if no rewards calculated
+   - Backend calculates rewards dynamically via `GET /api/users/:userId/rewards` endpoint
+   - Rewards data fetched when user list loads for all users
+
+### Implementation Details
+
+- **Rewards Calculation**: 
+  - Endpoint analyzes 7-day satamatka games only
+  - Formula: `(total bet amount × reward commission rate) / 10000`
+  - Reward commission stored as basis points (e.g., 500 = 5%)
+  - For subadmins, automatically aggregates all player bets under them
+
+- **Database Changes**:
+  - Added `creditReference` integer column (default 0) to users table
+  - Storage method: `updateUserCreditReference(userId, amount)`
+  - No new tables required - integrated into existing schema
+
+- **Frontend Updates**:
+  - User management page fetches rewards for all users on load
+  - Efficient batch fetching with error handling
+  - Added test IDs for rewards column cells
+  - Table colspan updated to accommodate new column

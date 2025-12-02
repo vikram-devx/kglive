@@ -111,6 +111,7 @@ export default function UserManagementPage() {
   const [commissionRate, setCommissionRate] = useState<number>(0);
   const [depositDiscountRate, setDepositDiscountRate] = useState<number>(0);
   const [selectedGameType, setSelectedGameType] = useState<string>("satamatka_jodi");
+  const [rewardsMap, setRewardsMap] = useState<Record<number, number>>({});
   const [selectedSubadminCommissionRate, setSelectedSubadminCommissionRate] = useState<number | null>(null);
   const [isResetAccountDialogOpen, setIsResetAccountDialogOpen] = useState(false);
   const [resetConfirmationText, setResetConfirmationText] = useState("");
@@ -164,6 +165,28 @@ export default function UserManagementPage() {
     const matchesRole = roleFilter === null || user.role === roleFilter;
     return matchesSearch && matchesRole;
   }) : [];
+  
+  // Fetch rewards for all users
+  useEffect(() => {
+    if (!Array.isArray(users) || users.length === 0) return;
+    
+    const fetchAllRewards = async () => {
+      const rewards: Record<number, number> = {};
+      for (const u of users) {
+        try {
+          const res = await apiRequest("GET", `/api/users/${u.id}/rewards`);
+          const data = await res.json();
+          rewards[u.id] = data.rewardAmount || 0;
+        } catch (error) {
+          console.error(`Failed to fetch rewards for user ${u.id}:`, error);
+          rewards[u.id] = 0;
+        }
+      }
+      setRewardsMap(rewards);
+    };
+    
+    fetchAllRewards();
+  }, [users]);
   
   // Fetch user transactions
   const { data: userTransactions = [], isLoading: isLoadingTransactions } = useQuery({
@@ -952,13 +975,14 @@ export default function UserManagementPage() {
                     <TableHead>CR</TableHead>
                     <TableHead>Balance</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Rewards</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4">
+                      <TableCell colSpan={7} className="text-center py-4">
                         No users found
                       </TableCell>
                     </TableRow>
@@ -994,6 +1018,9 @@ export default function UserManagementPage() {
                               Active
                             </Badge>
                           )}
+                        </TableCell>
+                        <TableCell data-testid={`text-rewards-${tableUser.id}`}>
+                          {rewardsMap[tableUser.id] !== undefined ? `₹${(rewardsMap[tableUser.id] / 100).toFixed(2)}` : '-'}
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-2">

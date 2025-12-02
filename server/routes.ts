@@ -4427,12 +4427,30 @@ app.get("/api/odds/admin", requireRole([UserRole.ADMIN, UserRole.SUBADMIN]), asy
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       sevenDaysAgo.setHours(0, 0, 0, 0);
       
-      // Get all satamatka games for this user in last 7 days
-      const allGames = await storage.getGamesByUserId(userId);
-      const satamatkaGames = allGames.filter(game => {
-        const gameDate = new Date(game.createdAt!);
-        return game.gameType.includes('satamatka') && gameDate >= sevenDaysAgo;
-      });
+      let satamatkaGames: any[] = [];
+      
+      // For subadmins: calculate rewards from all assigned players' bets
+      if (user.role === UserRole.SUBADMIN) {
+        const assignedUsers = await storage.getUsersByAssignedTo(userId);
+        
+        for (const assignedUser of assignedUsers) {
+          if (assignedUser.role === UserRole.PLAYER) {
+            const userGames = await storage.getGamesByUserId(assignedUser.id);
+            const userSatamatkaGames = userGames.filter(game => {
+              const gameDate = new Date(game.createdAt!);
+              return game.gameType.includes('satamatka') && gameDate >= sevenDaysAgo;
+            });
+            satamatkaGames = [...satamatkaGames, ...userSatamatkaGames];
+          }
+        }
+      } else {
+        // For players: get their own games
+        const allGames = await storage.getGamesByUserId(userId);
+        satamatkaGames = allGames.filter(game => {
+          const gameDate = new Date(game.createdAt!);
+          return game.gameType.includes('satamatka') && gameDate >= sevenDaysAgo;
+        });
+      }
       
       // Calculate total bet amount
       const totalBetAmount = satamatkaGames.reduce((sum, game) => sum + game.betAmount, 0);
