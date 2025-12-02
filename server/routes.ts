@@ -1336,7 +1336,8 @@ app.get("/api/games/my-history", async (req, res, next) => {
           totalProfit: 0,
           totalDeposits: 0,
           totalUsers: 0,
-          activeUsers: 0
+          activeUsers: 0,
+          recentGames: []
         });
       }
       
@@ -1353,47 +1354,61 @@ app.get("/api/games/my-history", async (req, res, next) => {
           .filter(tx => tx.amount > 0 && tx.description && (
             tx.description.includes('Deposit') || 
             tx.description.includes('Added by admin') || 
-            tx.description.includes('Funds added')
+            tx.description.includes('Funds added') ||
+            tx.description.includes('deposit')
           ))
           .reduce((sum, tx) => sum + tx.amount, 0);
       }
       
       // Calculate profit/loss from games
       const games = await storage.getGamesByUserIds(userIds);
+      let recentGames: any[] = [];
+      
       if (games && games.length > 0) {
         // Calculate profit (positive when house wins, negative when player wins)
         totalProfit = games.reduce((sum, game) => {
-          // For player-won games, result will be "win" or "heads"/"tails" matching their prediction
-          const playerWon = game.result === 'win' || 
-                           (game.result && game.prediction && game.result === game.prediction);
+          // For player-won games, result will be "win"
+          const playerWon = game.result === 'win';
           
-          // For house-won games, result will be "loss" or different from player's prediction
-          const houseWon = game.result === 'loss' ||
-                          (game.result && game.prediction && game.result !== game.prediction && 
-                           game.result !== 'pending' && game.result !== 'win');
+          // For house-won games, result will be "loss"
+          const houseWon = game.result === 'loss';
                           
           if (playerWon) {
-            // House loss (negative profit): payout - betAmount
-            return sum - ((game.payout || 0) - (game.betAmount || game.bet_amount || 0));
+            // House loss (negative profit): betAmount - payout
+            return sum - ((game.payout || 0) - (game.betAmount || 0));
           } else if (houseWon) {
             // House win (positive profit): betAmount
-            return sum + (game.betAmount || game.bet_amount || 0);
+            return sum + (game.betAmount || 0);
           }
           // Pending games don't affect profit calculation
           return sum;
         }, 0);
+        
+        // Get recent games (last 5)
+        recentGames = games
+          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+          .slice(0, 5)
+          .map(game => ({
+            id: game.id,
+            username: users.find(u => u.id === game.userId)?.username || 'Unknown',
+            gameType: game.gameType,
+            betAmount: game.betAmount,
+            result: game.result || 'pending',
+            createdAt: game.createdAt
+          }));
       }
       
       // Count active users (users who played at least one game)
       const activeUserIds = games.length > 0 ? 
-        [...new Set(games.map(game => game.userId || game.user_id))] : [];
+        [...new Set(games.map(game => game.userId))] : [];
       const activeUsers = activeUserIds.length;
       
       res.json({
         totalProfit,
         totalDeposits,
         totalUsers: users.length,
-        activeUsers
+        activeUsers,
+        recentGames
       });
     } catch (err) {
       next(err);

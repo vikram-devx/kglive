@@ -144,7 +144,7 @@ Preferred communication style: Simple, everyday language.
 ### Optional Integrations
 - **Stripe**: Payment processing capability (libraries included but not actively used in core flows)
 
-## Recent Changes (December 2, 2025)
+## Recent Changes (December 2, 2025 - Updated)
 
 ### Features Added
 
@@ -181,3 +181,15 @@ Preferred communication style: Simple, everyday language.
   - Efficient batch fetching with error handling
   - Added test IDs for rewards column cells
   - Table colspan updated to accommodate new column
+
+3. **Subadmin Dashboard Data Fixes**
+   - Fixed total deposits calculation to properly sum all deposit transactions
+   - Fixed profit/loss calculation to account for player wins/losses correctly
+   - Added recentGames data to subadmin stats endpoint for dashboard display
+   - Improved game result detection logic for accurate profit calculations
+
+4. **Satamatka Odd/Even Mobile Optimization**
+   - Changed grid layout from `grid-cols-1 md:grid-cols-2` to `grid-cols-1`
+   - Now displays in single column layout optimized for mobile devices
+   - Bet type cards (Odd/Even) stack vertically for better mobile UX
+   - Maintains readability and accessibility on all screen sizes

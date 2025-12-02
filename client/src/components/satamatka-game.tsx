@@ -1121,7 +1121,7 @@ export default function SatamatkaGame() {
           </div>
           
           {/* Improved Odd-Even selection cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <Card 
               className={`cursor-pointer transition-all border ${
                 selectedNumbers.has("odd") ? "border-primary shadow-md" : "border-slate-700"
