@@ -202,3 +202,13 @@ Preferred communication style: Simple, everyday language.
    - Uses `status === 'pending'` as canonical active indicator across all game types
    - Excludes known final results: win, loss, heads, tails, team_a, team_b, draw
    - Cache invalidation updated to refresh Active Bets list after bet mutations
+
+6. **Dashboard Total Deposits & Withdrawals Rework (December 3, 2025)**
+   - **Total Deposits**: Now counts only funds transferred TO subadmins/users (excludes admin's own wallet top-ups)
+   - **Total Withdrawals**: New metric tracking funds recovered FROM subadmins/users
+   - Calculation logic:
+     - Deposits: Sum of transactions with "Funds transferred to" description (negative amounts on admin/subadmin wallet)
+     - Withdrawals: Sum of transactions with "Funds recovered from" description (positive amounts on admin/subadmin wallet)
+   - Fixed critical bug in subadmin stats where admin ID was incorrectly used instead of subadmin's own ID
+   - Added `totalWithdrawals` to both Admin and Subadmin dashboard cards
+   - Backend endpoints: `/api/admin/stats` and `/api/subadmin/stats` updated with new `targetSubadminId` logic
