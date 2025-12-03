@@ -1648,10 +1648,14 @@ export default function SatamatkaGame() {
                       ? (calculatePotentialWin(gameMode, bet.betAmount / 100, gameOdds)).toFixed(2)
                       : (bet.betAmount * 1.9 / 10000).toFixed(2); // Default multiplier if gameMode not available
                     
-                    // Determine visual styling based on status
-                    const isWin = bet.result === "win" || bet.status === "win";
-                    const isLoss = bet.result === "loss" || bet.status === "loss";
-                    const isPending = bet.result === "pending" || bet.status === "pending" || !bet.result;
+                    // Determine visual styling based on result field (prioritize result over status)
+                    // The result field is updated to "win" or "loss" when market results are declared
+                    // The status field is for bet administrative status (pending/settled/cancelled)
+                    const isWin = bet.result === "win";
+                    const isLoss = bet.result === "loss";
+                    // Only consider pending if result is explicitly "pending" or not yet set (null/undefined)
+                    // Do not use status field here as it tracks admin status, not game outcome
+                    const isPending = !bet.result || bet.result === "pending";
                     
                     // Format payout amount
                     const payout = bet.payout ? (bet.payout / 100).toFixed(2) : "0.00";
