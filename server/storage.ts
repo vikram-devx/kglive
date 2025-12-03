@@ -97,6 +97,7 @@ export interface IStorage {
   getSatamatkaGamesByMarketId(marketId: number): Promise<Game[]>;
   getRecentMarketResults(limit?: number): Promise<SatamatkaMarket[]>;
   getMarketResultsByDateRange(startDate: Date, endDate: Date): Promise<SatamatkaMarket[]>;
+  getOpenMarketsPastCloseTime(): Promise<SatamatkaMarket[]>;
 
   // Team Match methods
   createTeamMatch(match: InsertTeamMatch): Promise<TeamMatch>;
@@ -603,6 +604,19 @@ export class DatabaseStorage implements IStorage {
       .from(games)
       .where(eq(games.marketId, marketId))
       .orderBy(desc(games.createdAt));
+  }
+
+  async getOpenMarketsPastCloseTime(): Promise<SatamatkaMarket[]> {
+    const now = new Date();
+    return await db.select()
+      .from(satamatkaMarkets)
+      .where(
+        and(
+          eq(satamatkaMarkets.status, MarketStatus.OPEN),
+          lt(satamatkaMarkets.closeTime, now)
+        )
+      )
+      .orderBy(asc(satamatkaMarkets.closeTime));
   }
 
   // Team Match methods
