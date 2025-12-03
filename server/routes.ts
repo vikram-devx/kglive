@@ -1320,21 +1320,35 @@ app.get("/api/games/my-history", async (req, res, next) => {
         return res.status(403).json({ message: "Access denied" });
       }
       
-      const subadminId = req.user!.id;
-      let assignedTo = subadminId;
+      // Determine which subadmin's stats we're viewing
+      let targetSubadminId: number;
       
-      // If admin is viewing a specific subadmin's stats
-      if (req.user!.role === UserRole.ADMIN && req.query.subadminId) {
-        assignedTo = Number(req.query.subadminId);
+      if (req.user!.role === UserRole.SUBADMIN) {
+        // Subadmin viewing their own stats
+        targetSubadminId = req.user!.id;
+      } else if (req.user!.role === UserRole.ADMIN && req.query.subadminId) {
+        // Admin viewing a specific subadmin's stats
+        targetSubadminId = Number(req.query.subadminId);
+      } else {
+        // Admin accessing without specifying a subadmin - return empty stats
+        return res.json({
+          totalProfit: 0,
+          totalDeposits: 0,
+          totalWithdrawals: 0,
+          totalUsers: 0,
+          activeUsers: 0,
+          recentGames: []
+        });
       }
       
       // Get all users assigned to this subadmin
-      const users = await storage.getUsersByAssignedTo(assignedTo);
+      const users = await storage.getUsersByAssignedTo(targetSubadminId);
       
       if (!users || users.length === 0) {
         return res.json({
           totalProfit: 0,
           totalDeposits: 0,
+          totalWithdrawals: 0,
           totalUsers: 0,
           activeUsers: 0,
           recentGames: []
@@ -1345,19 +1359,27 @@ app.get("/api/games/my-history", async (req, res, next) => {
       const userIds = users.map(user => user.id);
       let totalProfit = 0;
       let totalDeposits = 0;
+      let totalWithdrawals = 0;
       
-      // Calculate total deposits from transactions
-      const transactions = await storage.getWalletTransactionsByUserIds(userIds);
-      if (transactions && transactions.length > 0) {
-        // Sum deposits (positive amounts with deposit description)
-        totalDeposits = transactions
-          .filter(tx => tx.amount > 0 && tx.description && (
-            tx.description.includes('Deposit') || 
-            tx.description.includes('Added by admin') || 
-            tx.description.includes('Funds added') ||
-            tx.description.includes('deposit')
-          ))
-          .reduce((sum, tx) => sum + tx.amount, 0);
+      // Calculate total deposits and withdrawals from subadmin's own transactions
+      // This is consistent with the admin stats logic
+      const subadminTransactions = await storage.getWalletTransactionsByUserIds([targetSubadminId]);
+      if (subadminTransactions && subadminTransactions.length > 0) {
+        for (const tx of subadminTransactions) {
+          if (tx.description) {
+            // DEPOSITS: Subadmin gave funds TO players
+            // These are recorded as negative amounts on subadmin's account with "Funds transferred to" description
+            if (tx.description.includes('Funds transferred to') && tx.amount < 0) {
+              totalDeposits += Math.abs(tx.amount);
+            }
+            
+            // WITHDRAWALS: Subadmin took funds FROM players
+            // These are recorded as positive amounts on subadmin's account with "Funds recovered from" description
+            if (tx.description.includes('Funds recovered from') && tx.amount > 0) {
+              totalWithdrawals += tx.amount;
+            }
+          }
+        }
       }
       
       // Calculate profit/loss from games
@@ -1406,6 +1428,7 @@ app.get("/api/games/my-history", async (req, res, next) => {
       res.json({
         totalProfit,
         totalDeposits,
+        totalWithdrawals,
         totalUsers: users.length,
         activeUsers,
         recentGames
@@ -4301,46 +4324,41 @@ app.get("/api/odds/admin", requireRole([UserRole.ADMIN, UserRole.SUBADMIN]), asy
       
       console.log(`Profit breakdown: Game profit: ${totalProfitLoss - commissionProfit}, Commission profit: ${commissionProfit}, Total: ${totalProfitLoss}`);
       
-      // Calculate total deposits properly:
-      // 1. For direct admin players, count the full deposit amount
-      // 2. For subadmin transactions, only count the actual amount deducted from admin (commission amount)
-      // 3. Include regular player deposits (players not assigned to any subadmin)
+      // Calculate Total Deposits and Total Withdrawals based on user's requirements:
+      // Total Deposits = Funds admin gave TO subadmins and TO direct users (not admin's own wallet top-ups)
+      // Total Withdrawals = Funds admin took FROM subadmins and FROM direct users
       
-      // Track admin total deposit calculation
       let totalDeposits = 0;
+      let totalWithdrawals = 0;
       
-      // Get all direct players (players with no subadmin assigned or assigned to admin)
-      const directPlayers = allUsers
-        .filter(user => user.role === UserRole.PLAYER && (!user.assignedTo || user.assignedTo === req.user!.id))
-        .map(user => user.id);
+      const adminId = req.user!.id;
       
-      console.log(`Direct players to admin: ${directPlayers.join(', ')}`);
+      console.log(`Calculating deposits/withdrawals for admin ID: ${adminId}`);
       
-      // Process each transaction - using the transactions array we already loaded above
+      // Process each transaction - find admin's own transactions
       for (const tx of transactions) {
-        // For direct players, count deposit amounts - check for any deposit-related descriptions
-        if (directPlayers.includes(tx.userId) && tx.amount > 0 && tx.description && 
-            (tx.description.includes('Deposit') || tx.description.toLowerCase().includes('deposit'))) {
-          totalDeposits += tx.amount;
-          console.log(`Counting direct player deposit: userId=${tx.userId}, amount=${tx.amount}`);
-        }
-        
-        // For subadmin-related transactions, look for commission information in the description
-        if (tx.description && tx.description.includes('commission rate applied')) {
-          // Extract the actual deduction amount (what admin paid) from the transaction description
-          // Format: "Funds transferred to subadmin (X of Y - commission rate applied, commission: Z)"
-          const match = tx.description.match(/\((\d+) of (\d+) - commission rate applied/);
+        // Only look at transactions recorded on admin's account
+        if (tx.userId === adminId && tx.description) {
           
-          if (match && match[1] && match[2]) {
-            // Only count the actual amount deducted from admin (match[1]), not the full amount (match[2])
-            const actualDeduction = parseInt(match[1], 10);
-            if (!isNaN(actualDeduction)) {
-              totalDeposits += actualDeduction;
-              console.log(`Counting subadmin transaction: ${tx.description}, actual deduction: ${actualDeduction}`);
-            }
+          // DEPOSITS: Admin gave funds TO subadmins/users
+          // These are recorded as negative amounts on admin's account with "Funds transferred to" description
+          if (tx.description.includes('Funds transferred to') && tx.amount < 0) {
+            // The amount is negative (deduction from admin), so we take absolute value
+            totalDeposits += Math.abs(tx.amount);
+            console.log(`Counting deposit: ${tx.description}, amount: ${Math.abs(tx.amount)}`);
+          }
+          
+          // WITHDRAWALS: Admin took funds FROM subadmins/users  
+          // These are recorded as positive amounts on admin's account with "Funds recovered from" description
+          if (tx.description.includes('Funds recovered from') && tx.amount > 0) {
+            totalWithdrawals += tx.amount;
+            console.log(`Counting withdrawal: ${tx.description}, amount: ${tx.amount}`);
           }
         }
       }
+      
+      console.log(`Total Deposits (to subadmins/users): ${totalDeposits}`);
+      console.log(`Total Withdrawals (from subadmins/users): ${totalWithdrawals}`);
       
       // Get active bet amount - from ALL PLATFORM USERS (including subadmins and their players)
       const activeGames = await storage.getActiveGames();
@@ -4399,6 +4417,7 @@ app.get("/api/odds/admin", requireRole([UserRole.ADMIN, UserRole.SUBADMIN]), asy
       res.json({
         totalProfitLoss,
         totalDeposits,
+        totalWithdrawals,
         activeBetAmount,
         potentialPayout,
         recentTransactions: recentTransactions.map(tx => ({

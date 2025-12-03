@@ -162,6 +162,7 @@ export default function HomePage() {
   interface SubadminStats {
     totalProfit: number;
     totalDeposits: number;
+    totalWithdrawals: number;
     totalUsers: number;
     activeUsers: number;
     recentGames: Array<{
@@ -178,6 +179,7 @@ export default function HomePage() {
   interface AdminStats {
     totalProfitLoss: number;
     totalDeposits: number;
+    totalWithdrawals: number;
     activeBetAmount: number;
     potentialPayout: number;
     recentTransactions: Array<{
@@ -205,6 +207,7 @@ export default function HomePage() {
   const subadminStats: SubadminStats = subadminStatsQuery.data || { 
     totalProfit: 0, 
     totalDeposits: 0, 
+    totalWithdrawals: 0,
     totalUsers: 0, 
     activeUsers: 0, 
     recentGames: [] 
@@ -213,6 +216,7 @@ export default function HomePage() {
   const adminStats: AdminStats = adminStatsQuery.data || {
     totalProfitLoss: 0,
     totalDeposits: 0,
+    totalWithdrawals: 0,
     activeBetAmount: 0,
     potentialPayout: 0,
     recentTransactions: []
@@ -284,9 +288,18 @@ export default function HomePage() {
             <DashboardStatsCard 
               title="Total Deposits" 
               value={`₹${((subadminStats.totalDeposits || 0) / 100).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}
-              icon={<DollarSign className="h-5 w-5 text-blue-400" />}
+              icon={<PlusCircle className="h-5 w-5 text-blue-400" />}
               trend="up" 
               color="blue"
+            />
+            
+            {/* Total Withdrawals Card */}
+            <DashboardStatsCard 
+              title="Total Withdrawals" 
+              value={`₹${((subadminStats.totalWithdrawals || 0) / 100).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}
+              icon={<MinusCircle className="h-5 w-5 text-red-400" />}
+              trend="down" 
+              color="red"
             />
             
             {/* Total Users Card */}
@@ -421,9 +434,18 @@ export default function HomePage() {
             <DashboardStatsCard 
               title="Total Deposits" 
               value={`₹${((adminStats.totalDeposits || 0) / 100).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}
-              icon={<DollarSign className="h-5 w-5 text-blue-400" />}
+              icon={<PlusCircle className="h-5 w-5 text-blue-400" />}
               trend="up" 
               color="blue"
+            />
+            
+            {/* Total Withdrawals Card */}
+            <DashboardStatsCard 
+              title="Total Withdrawals" 
+              value={`₹${((adminStats.totalWithdrawals || 0) / 100).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}
+              icon={<MinusCircle className="h-5 w-5 text-red-400" />}
+              trend="down" 
+              color="red"
             />
             
             {/* Active Bet Amount Card */}

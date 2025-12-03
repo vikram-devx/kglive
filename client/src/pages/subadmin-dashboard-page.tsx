@@ -12,13 +12,15 @@ import {
   BarChart3,
   ChevronUp,
   ChevronDown,
-  History
+  History,
+  MinusCircle
 } from "lucide-react";
 
 // Type definitions for the data returned from API
 interface SubadminStats {
   totalProfit: number;
   totalDeposits: number;
+  totalWithdrawals: number;
   totalUsers: number;
   activeUsers: number;
 }
@@ -151,6 +153,24 @@ export default function SubadminDashboardPage() {
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     Funds added to user accounts
+                  </p>
+                </CardContent>
+              </Card>
+              
+              {/* Total Withdrawals Card */}
+              <Card className="bg-slate-900/50 border-red-500/20 hover:border-red-500/50 transition-all">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Total Withdrawals
+                  </CardTitle>
+                  <MinusCircle className="h-4 w-4 text-red-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-orange-400">
+                    {formatCurrency(stats.totalWithdrawals)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Funds taken from user accounts
                   </p>
                 </CardContent>
               </Card>
