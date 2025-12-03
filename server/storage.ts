@@ -407,21 +407,28 @@ export class DatabaseStorage implements IStorage {
     return game;
   }
 
-  // Get active bets for a specific user (pending bets that haven't been settled or cancelled)
+  // Get active bets for a specific user (bets that haven't been settled or cancelled)
+  // A bet is "active" when status is 'pending' (canonical indicator across all game types)
+  // Result values vary by game type and are only reliable after settlement
   async getActiveBetsByUserId(userId: number): Promise<Game[]> {
-    return await db.select()
+    // Use status as the primary indicator - it's consistently used across all game types
+    // Exclude final results to handle edge cases where status might lag behind result
+    const FINAL_RESULTS = ['win', 'loss', 'heads', 'tails', 'team_a', 'team_b', 'draw'];
+    
+    const allPendingGames = await db.select()
       .from(games)
       .where(
         and(
           eq(games.userId, userId),
-          eq(games.status, 'pending'),
-          or(
-            isNull(games.result),
-            eq(games.result, 'pending')
-          )
+          eq(games.status, 'pending')
         )
       )
       .orderBy(desc(games.createdAt));
+    
+    // Filter out any games that have final results (in case status wasn't updated yet)
+    return allPendingGames.filter(game => 
+      !game.result || !FINAL_RESULTS.includes(game.result)
+    );
   }
 
   // Admin bet management methods

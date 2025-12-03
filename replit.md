@@ -193,3 +193,12 @@ Preferred communication style: Simple, everyday language.
    - Now displays in single column layout optimized for mobile devices
    - Bet type cards (Odd/Even) stack vertically for better mobile UX
    - Maintains readability and accessibility on all screen sizes
+
+5. **Active Bets Tab Fix (December 3, 2025)**
+   - Fixed issue where bets remained visible in Active Bets tab after results were declared
+   - Moved filtering logic from frontend to dedicated backend endpoint
+   - Backend endpoint: `GET /api/admin/users/:userId/active-bets`
+   - Supports both admin and subadmin access (subadmins restricted to assigned users)
+   - Uses `status === 'pending'` as canonical active indicator across all game types
+   - Excludes known final results: win, loss, heads, tails, team_a, team_b, draw
+   - Cache invalidation updated to refresh Active Bets list after bet mutations

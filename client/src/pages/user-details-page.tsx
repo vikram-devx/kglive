@@ -119,30 +119,14 @@ export default function UserDetailsPage() {
     enabled: !!userId && activeTab === "bets",
   });
   
-  // Fetch active bets (pending games) for the user
+  // Fetch active bets (pending games) for the user using the dedicated backend endpoint
   const { data: userActiveBets = [], isLoading: isLoadingActiveBets } = useQuery({
-    queryKey: ["/api/games/pending", userId],
+    queryKey: ["/api/admin/users", userId, "active-bets"],
     queryFn: async () => {
-      // Get all games for this user
-      const res = await apiRequest("GET", `/api/games/${userId}`);
-      const allGames = await res.json();
-      
-      // Active bets are those with status='pending' (not cancelled or settled)
-      // Also check result field for backward compatibility
-      const activeBets = allGames.filter((game: any) => {
-        // Exclude cancelled bets
-        if (game.status === 'cancelled') return false;
-        
-        // Check if bet is pending
-        const isPending = game.status === 'pending' || 
-                         (!game.result || 
-                          game.result === "" || 
-                          game.result === "pending" ||
-                          (game.game_data && game.game_data.status === "open"));
-        return isPending;
-      });
-      
-      return activeBets;
+      // Use the dedicated backend endpoint that properly filters active bets
+      // This filters by: status='pending' AND (result is null OR result='pending')
+      const res = await apiRequest("GET", `/api/admin/users/${userId}/active-bets`);
+      return await res.json();
     },
     enabled: !!userId && activeTab === "active-bets",
   });
@@ -228,7 +212,7 @@ export default function UserDetailsPage() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/games/pending", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users", userId, "active-bets"] });
       queryClient.invalidateQueries({ queryKey: ["/api/games", userId] });
       queryClient.invalidateQueries({ queryKey: ["/api/users", userId] });
       setCancelDialogOpen(false);
@@ -254,7 +238,7 @@ export default function UserDetailsPage() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/games/pending", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users", userId, "active-bets"] });
       queryClient.invalidateQueries({ queryKey: ["/api/games", userId] });
       setChangePredictionDialogOpen(false);
       setSelectedBet(null);
@@ -279,7 +263,7 @@ export default function UserDetailsPage() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/games/pending", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users", userId, "active-bets"] });
       queryClient.invalidateQueries({ queryKey: ["/api/games", userId] });
       setChangeTimeDialogOpen(false);
       setSelectedBet(null);

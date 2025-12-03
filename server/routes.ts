@@ -4030,12 +4030,20 @@ app.get("/api/odds/admin", requireRole([UserRole.ADMIN, UserRole.SUBADMIN]), asy
   // ADMIN BET MANAGEMENT ENDPOINTS
   // =============================================
 
-  // Get active bets for a specific user (admin only)
-  app.get("/api/admin/users/:userId/active-bets", requireRole([UserRole.ADMIN]), async (req, res, next) => {
+  // Get active bets for a specific user (admin and subadmin)
+  app.get("/api/admin/users/:userId/active-bets", requireRole([UserRole.ADMIN, UserRole.SUBADMIN]), async (req, res, next) => {
     try {
       const userId = parseInt(req.params.userId);
       if (isNaN(userId)) {
         return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      // Subadmins can only view active bets for users assigned to them
+      if (req.user!.role === UserRole.SUBADMIN) {
+        const targetUser = await storage.getUser(userId);
+        if (!targetUser || targetUser.assignedTo !== req.user!.id) {
+          return res.status(403).json({ message: "You can only view active bets for users assigned to you" });
+        }
       }
       
       const activeBets = await storage.getActiveBetsByUserId(userId);
