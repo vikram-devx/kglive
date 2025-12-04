@@ -1410,14 +1410,29 @@ app.get("/api/games/my-history", async (req, res, next) => {
         recentGames = games
           .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
           .slice(0, 5)
-          .map(game => ({
-            id: game.id,
-            username: users.find(u => u.id === game.userId)?.username || 'Unknown',
-            gameType: game.gameType,
-            betAmount: game.betAmount,
-            result: game.result || 'pending',
-            createdAt: game.createdAt
-          }));
+          .map(game => {
+            // Determine win/loss based on payout for games like coinflip and cricket_toss
+            // which store actual outcome in result field (heads/tails, team_a/team_b)
+            let displayResult: 'win' | 'loss' | 'pending' = 'pending';
+            if (game.gameType === 'coin_flip' || game.gameType === 'cricket_toss') {
+              // For instant games, payout > 0 means win
+              displayResult = (game.payout || 0) > 0 ? 'win' : 'loss';
+            } else if (game.result === 'win' || (game.payout || 0) > 0) {
+              displayResult = 'win';
+            } else if (game.result === 'loss') {
+              displayResult = 'loss';
+            }
+            // For satamatka pending games, result may be null
+            
+            return {
+              id: game.id,
+              username: users.find(u => u.id === game.userId)?.username || 'Unknown',
+              gameType: game.gameType,
+              betAmount: game.betAmount,
+              result: displayResult,
+              createdAt: game.createdAt
+            };
+          });
       }
       
       // Count active users (users who played at least one game)
