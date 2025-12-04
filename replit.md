@@ -212,3 +212,14 @@ Preferred communication style: Simple, everyday language.
    - Fixed critical bug in subadmin stats where admin ID was incorrectly used instead of subadmin's own ID
    - Added `totalWithdrawals` to both Admin and Subadmin dashboard cards
    - Backend endpoints: `/api/admin/stats` and `/api/subadmin/stats` updated with new `targetSubadminId` logic
+
+7. **Multi-Day Market Scheduling (December 4, 2025)**
+   - Markets now support separate open date and close date for multi-day betting periods
+   - Form UI split into "Opening Schedule" (open date + open time) and "Closing Schedule" (close date + close time + result time)
+   - Added validation to ensure:
+     - Close datetime is after or equal to open datetime
+     - Result time is after or equal to close time
+   - Result time is now always relative to the close date
+   - Auto-close scheduler continues to work based on closeTime timestamp
+   - Example use case: Market opens Monday at 9 AM, closes Tuesday at 9 PM
+   - Frontend file: `client/src/pages/admin-market-management-page.tsx`
