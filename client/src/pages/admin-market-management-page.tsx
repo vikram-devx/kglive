@@ -73,7 +73,6 @@ interface SatamatkaMarket {
   name: string;
   type: string;
   coverImage?: string;
-  marketDate: string;
   openTime: string;
   closeTime: string;
   resultTime: string;
@@ -100,15 +99,41 @@ const marketFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   type: z.string().optional().default("gali"), // Default type is 'gali' since all markets follow this style
   coverImage: z.string().optional(),
-  marketDate: z.string().min(1, "Date is required"),
+  openDate: z.string().min(1, "Open date is required"),
   openTime: z.string().min(5, "Open time is required"),
+  closeDate: z.string().min(1, "Close date is required"),
   closeTime: z.string().min(5, "Close time is required"),
   resultTime: z.string().min(5, "Result time is required"),
+}).refine((data) => {
+  // Validate that close datetime is after or equal to open datetime
+  const openDateTime = new Date(`${data.openDate}T${data.openTime}`);
+  const closeDateTime = new Date(`${data.closeDate}T${data.closeTime}`);
+  return closeDateTime >= openDateTime;
+}, {
+  message: "Close date/time must be after or equal to open date/time",
+  path: ["closeDate"],
+}).refine((data) => {
+  // Validate that result time is after close time (on the same close date)
+  const closeDateTime = new Date(`${data.closeDate}T${data.closeTime}`);
+  const resultDateTime = new Date(`${data.closeDate}T${data.resultTime}`);
+  return resultDateTime >= closeDateTime;
+}, {
+  message: "Result time must be after or equal to close time",
+  path: ["resultTime"],
 });
+
+// Type for market games
+interface MarketGame {
+  id: number;
+  result: string | null;
+  gameMode: string;
+  betAmount: number;
+  payout: number;
+}
 
 // Market Betting Stats Component
 function MarketBettingStats({ marketId, status }: { marketId: number; status: string }) {
-  const { data: marketGames = [] } = useQuery({
+  const { data: marketGames = [] } = useQuery<MarketGame[]>({
     queryKey: [`/api/satamatka/markets/${marketId}/games`],
     enabled: status === "open" || status === "closed",
   });
@@ -122,15 +147,15 @@ function MarketBettingStats({ marketId, status }: { marketId: number; status: st
   }
 
   // Calculate stats for active/closed markets
-  const activeBets = marketGames.filter(game => game.result === "pending").length;
+  const activeBets = marketGames.filter((game: MarketGame) => game.result === "pending").length;
   const totalBetAmount = marketGames
-    .filter(game => game.result === "pending")
-    .reduce((sum, game) => sum + (game.betAmount || 0), 0);
+    .filter((game: MarketGame) => game.result === "pending")
+    .reduce((sum: number, game: MarketGame) => sum + (game.betAmount || 0), 0);
 
   // Calculate potential win based on game modes and odds
   const potentialWin = marketGames
-    .filter(game => game.result === "pending")
-    .reduce((sum, game) => {
+    .filter((game: MarketGame) => game.result === "pending")
+    .reduce((sum: number, game: MarketGame) => {
       const betAmount = game.betAmount || 0;
       let multiplier = 1;
       
@@ -195,10 +220,11 @@ export default function AdminMarketManagementPage() {
     resolver: zodResolver(marketFormSchema),
     defaultValues: {
       name: "",
-      type: "",
+      type: "gali",
       coverImage: "",
-      marketDate: format(new Date(), "yyyy-MM-dd"),
+      openDate: format(new Date(), "yyyy-MM-dd"),
       openTime: "",
+      closeDate: format(new Date(), "yyyy-MM-dd"),
       closeTime: "",
       resultTime: "",
     },
@@ -282,17 +308,18 @@ export default function AdminMarketManagementPage() {
 
   const createMarket = useMutation({
     mutationFn: async (data: z.infer<typeof marketFormSchema>) => {
-      // Combine date and time fields into ISO strings
-      const marketDate = data.marketDate;
-      
-      // Create proper datetime strings by combining date with time
-      const openTimeISO = combineDateTime(marketDate, data.openTime);
-      const closeTimeISO = combineDateTime(marketDate, data.closeTime);
-      const resultTimeISO = combineDateTime(marketDate, data.resultTime);
+      // Create proper datetime strings by combining separate date and time fields
+      const openTimeISO = combineDateTime(data.openDate, data.openTime);
+      const closeTimeISO = combineDateTime(data.closeDate, data.closeTime);
+      // Result time uses close date since result comes after market closes
+      const resultTimeISO = combineDateTime(data.closeDate, data.resultTime);
       
       // Set initial market status to "waiting" to ensure manual activation flow
+      // Only send the fields the backend expects (exclude raw date fields)
       const marketData = {
-        ...data,
+        name: data.name,
+        type: data.type,
+        coverImage: data.coverImage,
         openTime: openTimeISO,
         closeTime: closeTimeISO,
         resultTime: resultTimeISO,
@@ -327,17 +354,18 @@ export default function AdminMarketManagementPage() {
 
   const updateMarket = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: z.infer<typeof marketFormSchema> }) => {
-      // Combine date and time fields into ISO strings for updates
-      const marketDate = data.marketDate;
-      
-      // Create proper datetime strings by combining date with time
-      const openTimeISO = combineDateTime(marketDate, data.openTime);
-      const closeTimeISO = combineDateTime(marketDate, data.closeTime);
-      const resultTimeISO = combineDateTime(marketDate, data.resultTime);
+      // Create proper datetime strings by combining separate date and time fields
+      const openTimeISO = combineDateTime(data.openDate, data.openTime);
+      const closeTimeISO = combineDateTime(data.closeDate, data.closeTime);
+      // Result time uses close date since result comes after market closes
+      const resultTimeISO = combineDateTime(data.closeDate, data.resultTime);
       
       // Prepare the data with proper datetime formats
+      // Only send the fields the backend expects (exclude raw date fields)
       const marketData = {
-        ...data,
+        name: data.name,
+        type: data.type,
+        coverImage: data.coverImage,
         openTime: openTimeISO,
         closeTime: closeTimeISO,
         resultTime: resultTimeISO
@@ -422,8 +450,9 @@ export default function AdminMarketManagementPage() {
       name: market.name,
       type: market.type,
       coverImage: market.coverImage || "",
-      marketDate: format(parseISO(market.marketDate || market.openTime), "yyyy-MM-dd"),
+      openDate: format(parseISO(market.openTime), "yyyy-MM-dd"),
       openTime: format(parseISO(market.openTime), "HH:mm"),
+      closeDate: format(parseISO(market.closeTime), "yyyy-MM-dd"),
       closeTime: format(parseISO(market.closeTime), "HH:mm"),
       resultTime: market.resultTime ? format(parseISO(market.resultTime), "HH:mm") : format(parseISO(market.closeTime), "HH:mm"),
     });
@@ -471,8 +500,9 @@ export default function AdminMarketManagementPage() {
       name: "",
       type: "gali", // Default to gali style 
       coverImage: "",
-      marketDate: format(new Date(), "yyyy-MM-dd"),
+      openDate: format(new Date(), "yyyy-MM-dd"),
       openTime: "",
+      closeDate: format(new Date(), "yyyy-MM-dd"),
       closeTime: "",
       resultTime: "",
     });
@@ -757,8 +787,9 @@ export default function AdminMarketManagementPage() {
                           name: market.name,
                           type: market.type || "gali",
                           coverImage: market.coverImage || "",
-                          marketDate: format(new Date(), "yyyy-MM-dd"),
+                          openDate: format(new Date(), "yyyy-MM-dd"),
                           openTime: format(parseISO(market.openTime), "HH:mm"),
+                          closeDate: format(new Date(), "yyyy-MM-dd"),
                           closeTime: format(parseISO(market.closeTime), "HH:mm"),
                           resultTime: market.resultTime ? format(parseISO(market.resultTime), "HH:mm") : format(parseISO(market.closeTime), "HH:mm"),
                         });
@@ -785,8 +816,9 @@ export default function AdminMarketManagementPage() {
                               name: market.name,
                               type: market.type || "gali",
                               coverImage: market.coverImage || "",
-                              marketDate: format(new Date(), "yyyy-MM-dd"),
+                              openDate: format(new Date(), "yyyy-MM-dd"),
                               openTime: format(parseISO(market.openTime), "HH:mm"),
+                              closeDate: format(new Date(), "yyyy-MM-dd"),
                               closeTime: format(parseISO(market.closeTime), "HH:mm"),
                               resultTime: market.resultTime ? format(parseISO(market.resultTime), "HH:mm") : format(parseISO(market.closeTime), "HH:mm"),
                             });
@@ -830,8 +862,9 @@ export default function AdminMarketManagementPage() {
                     name: "",
                     type: "gali",
                     coverImage: "",
-                    marketDate: format(new Date(), "yyyy-MM-dd"),
+                    openDate: format(new Date(), "yyyy-MM-dd"),
                     openTime: "",
+                    closeDate: format(new Date(), "yyyy-MM-dd"),
                     closeTime: "",
                     resultTime: "",
                   });
@@ -966,123 +999,152 @@ export default function AdminMarketManagementPage() {
                 )}
               />
 
+              {/* Open Date & Time Section */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-slate-300">Opening Schedule</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={marketForm.control}
+                    name="openDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Open Date</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="date" data-testid="input-open-date" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={marketForm.control}
+                    name="openTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Open Time</FormLabel>
+                        <FormControl>
+                          <select 
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            {...field}
+                            data-testid="select-open-time"
+                          >
+                            <option value="">Select time</option>
+                            {Array.from({ length: 24 }).map((_, hour) => (
+                              Array.from({ length: 4 }).map((_, minute) => {
+                                const h = hour;
+                                const m = minute * 15;
+                                const timeValue = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                                const displayHour = h % 12 === 0 ? 12 : h % 12;
+                                const ampm = h < 12 ? 'AM' : 'PM';
+                                const displayTime = `${displayHour}:${m.toString().padStart(2, '0')} ${ampm}`;
+                                return (
+                                  <option key={timeValue} value={timeValue}>
+                                    {displayTime}
+                                  </option>
+                                );
+                              })
+                            ))}
+                          </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+              
+              {/* Close Date & Time Section */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-slate-300">Closing Schedule</h4>
+                <p className="text-xs text-slate-500">Set a different date if the market runs overnight or spans multiple days</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={marketForm.control}
+                    name="closeDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Close Date</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="date" data-testid="input-close-date" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={marketForm.control}
+                    name="closeTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Close Time</FormLabel>
+                        <FormControl>
+                          <select 
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            {...field}
+                            data-testid="select-close-time"
+                          >
+                            <option value="">Select time</option>
+                            {Array.from({ length: 24 }).map((_, hour) => (
+                              Array.from({ length: 4 }).map((_, minute) => {
+                                const h = hour;
+                                const m = minute * 15;
+                                const timeValue = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                                const displayHour = h % 12 === 0 ? 12 : h % 12;
+                                const ampm = h < 12 ? 'AM' : 'PM';
+                                const displayTime = `${displayHour}:${m.toString().padStart(2, '0')} ${ampm}`;
+                                return (
+                                  <option key={timeValue} value={timeValue}>
+                                    {displayTime}
+                                  </option>
+                                );
+                              })
+                            ))}
+                          </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+              
+              {/* Result Time */}
               <FormField
                 control={marketForm.control}
-                name="marketDate"
+                name="resultTime"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Market Date</FormLabel>
+                    <FormLabel>Result Time (on close date)</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <select 
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        {...field}
+                        data-testid="select-result-time"
+                      >
+                        <option value="">Select time</option>
+                        {Array.from({ length: 24 }).map((_, hour) => (
+                          Array.from({ length: 4 }).map((_, minute) => {
+                            const h = hour;
+                            const m = minute * 15;
+                            const timeValue = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                            const displayHour = h % 12 === 0 ? 12 : h % 12;
+                            const ampm = h < 12 ? 'AM' : 'PM';
+                            const displayTime = `${displayHour}:${m.toString().padStart(2, '0')} ${ampm}`;
+                            return (
+                              <option key={timeValue} value={timeValue}>
+                                {displayTime}
+                              </option>
+                            );
+                          })
+                        ))}
+                      </select>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
-              <div className="grid grid-cols-3 gap-4">
-                <FormField
-                  control={marketForm.control}
-                  name="openTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Open Time</FormLabel>
-                      <FormControl>
-                        <select 
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          {...field}
-                        >
-                          <option value="">Select time</option>
-                          {Array.from({ length: 24 }).map((_, hour) => (
-                            Array.from({ length: 4 }).map((_, minute) => {
-                              const h = hour;
-                              const m = minute * 15;
-                              const timeValue = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                              const displayHour = h % 12 === 0 ? 12 : h % 12;
-                              const ampm = h < 12 ? 'AM' : 'PM';
-                              const displayTime = `${displayHour}:${m.toString().padStart(2, '0')} ${ampm}`;
-                              return (
-                                <option key={timeValue} value={timeValue}>
-                                  {displayTime}
-                                </option>
-                              );
-                            })
-                          ))}
-                        </select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={marketForm.control}
-                  name="closeTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Close Time</FormLabel>
-                      <FormControl>
-                        <select 
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          {...field}
-                        >
-                          <option value="">Select time</option>
-                          {Array.from({ length: 24 }).map((_, hour) => (
-                            Array.from({ length: 4 }).map((_, minute) => {
-                              const h = hour;
-                              const m = minute * 15;
-                              const timeValue = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                              const displayHour = h % 12 === 0 ? 12 : h % 12;
-                              const ampm = h < 12 ? 'AM' : 'PM';
-                              const displayTime = `${displayHour}:${m.toString().padStart(2, '0')} ${ampm}`;
-                              return (
-                                <option key={timeValue} value={timeValue}>
-                                  {displayTime}
-                                </option>
-                              );
-                            })
-                          ))}
-                        </select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={marketForm.control}
-                  name="resultTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Result Time</FormLabel>
-                      <FormControl>
-                        <select 
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          {...field}
-                        >
-                          <option value="">Select time</option>
-                          {Array.from({ length: 24 }).map((_, hour) => (
-                            Array.from({ length: 4 }).map((_, minute) => {
-                              const h = hour;
-                              const m = minute * 15;
-                              const timeValue = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                              const displayHour = h % 12 === 0 ? 12 : h % 12;
-                              const ampm = h < 12 ? 'AM' : 'PM';
-                              const displayTime = `${displayHour}:${m.toString().padStart(2, '0')} ${ampm}`;
-                              return (
-                                <option key={timeValue} value={timeValue}>
-                                  {displayTime}
-                                </option>
-                              );
-                            })
-                          ))}
-                        </select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
               
 
               
